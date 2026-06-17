@@ -55,3 +55,14 @@ springdoc:
     path: /api-docs
   swagger-ui:
     path: /swagger-ui.html
+
+# JWT
+jwt:
+  secret: ${JWT_SECRET:default-secret-key-for-development-only-change-in-production-32chars}
+  expiration-ms: 86400000  # 24시간
+
+# Kakao OAuth
+kakao:
+  oauth:
+    client-id: ${KAKAO_CLIENT_ID:}
+    redirect-uri: ${KAKAO_REDIRECT_URI:http://localhost:3000/auth/callback}

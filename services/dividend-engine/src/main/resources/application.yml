@@ -36,3 +36,22 @@ management:
   endpoint:
     health:
       show-details: always
+
+# 한국투자증권 OpenAPI
+kis:
+  api:
+    base-url: ${KIS_API_URL:https://openapivts.koreainvestment.com:9443}
+    app-key: ${KIS_APP_KEY:}
+    app-secret: ${KIS_APP_SECRET:}
+
+# Notification Service
+services:
+  notification:
+    url: ${NOTIFICATION_SERVICE_URL:http://localhost:8082}
+
+# Swagger
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html

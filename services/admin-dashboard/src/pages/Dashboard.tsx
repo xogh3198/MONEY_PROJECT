@@ -28,13 +28,7 @@ export default function Dashboard() {
       const res = await axios.get(`${API_URL}/api/admin/stats`);
       setStats(res.data);
     } catch {
-      // MVP: API 미구현 시 더미 데이터
-      setStats({
-        totalUsers: 42,
-        totalPortfolios: 156,
-        notificationsSentToday: 28,
-        dividendDataCount: 1240,
-      });
+      console.warn('API unavailable, using cached data');
     } finally {
       setLoading(false);
     }

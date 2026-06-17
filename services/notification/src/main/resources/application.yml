@@ -1,0 +1,25 @@
+spring:
+  application:
+    name: notification
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/dividend_bot}
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:postgres}
+  jpa:
+    hibernate:
+      ddl-auto: update
+    defer-datasource-initialization: true
+
+server:
+  port: 8082
+
+kakao:
+  alimtalk:
+    api-url: ${KAKAO_API_URL:https://kapi.kakao.com}
+    sender-key: ${KAKAO_SENDER_KEY:}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

@@ -24,13 +24,13 @@ public class JwtProvider {
         this.expirationMs = expirationMs;
     }
 
-    public String generateToken(UUID userId, String accountType) {
+    public String generateToken(UUID userId, String role) {
         Date now = new Date();
         Date expiry = new Date(now.getTime() + expirationMs);
 
         return Jwts.builder()
                 .subject(userId.toString())
-                .claim("accountType", accountType)
+                .claim("role", role)
                 .issuedAt(now)
                 .expiration(expiry)
                 .signWith(key)

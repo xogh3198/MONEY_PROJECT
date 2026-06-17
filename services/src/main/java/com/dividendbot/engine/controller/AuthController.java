@@ -6,18 +6,13 @@ import com.dividendbot.engine.domain.entity.User;
 import com.dividendbot.engine.domain.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.reactive.function.client.WebClient;
 
+import java.security.MessageDigest;
+import java.util.Base64;
 import java.util.Map;
 
-/**
- * 카카오 OAuth 로그인/회원가입
- * - 프론트에서 카카오 로그인 후 인가코드 전달
- * - 백엔드에서 Access Token 교환 → 사용자 정보 조회 → JWT 발급
- */
 @RestController
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
@@ -28,86 +23,130 @@ public class AuthController {
     private final UserRepository userRepository;
     private final JwtProvider jwtProvider;
 
-    @Value("${kakao.oauth.client-id:}")
-    private String kakaoClientId;
+    /**
+     * 일반 회원가입
+     */
+    @PostMapping("/register")
+    public ResponseEntity<Map<String, Object>> register(@RequestBody Map<String, String> body) {
+        String email = body.get("email");
+        String password = body.get("password");
+        String nickname = body.getOrDefault("nickname", "사용자");
 
-    @Value("${kakao.oauth.redirect-uri:http://localhost:3000/auth/callback}")
-    private String redirectUri;
+        if (email == null || password == null) {
+            return ResponseEntity.badRequest().body(Map.of("error", "이메일과 비밀번호는 필수입니다"));
+        }
+
+        if (userRepository.existsByEmail(email)) {
+            return ResponseEntity.badRequest().body(Map.of("error", "이미 등록된 이메일입니다"));
+        }
+
+        User user = User.builder()
+                .email(email)
+                .password(hashPassword(password))
+                .nickname(nickname)
+                .accountType(AccountType.GENERAL)
+                .role("USER")
+                .build();
+
+        userRepository.save(user);
+        String token = jwtProvider.generateToken(user.getId(), user.getRole());
+
+        log.info("New user registered: {}", email);
+        return ResponseEntity.ok(Map.of(
+                "token", token,
+                "userId", user.getId().toString(),
+                "email", email,
+                "nickname", nickname,
+                "role", user.getRole()
+        ));
+    }
 
     /**
-     * 카카오 OAuth 콜백 — 인가코드로 토큰 교환 후 로그인/회원가입 처리
+     * 일반 로그인
+     */
+    @PostMapping("/login")
+    public ResponseEntity<Map<String, Object>> login(@RequestBody Map<String, String> body) {
+        String email = body.get("email");
+        String password = body.get("password");
+
+        if (email == null || password == null) {
+            return ResponseEntity.badRequest().body(Map.of("error", "이메일과 비밀번호를 입력하세요"));
+        }
+
+        return userRepository.findByEmail(email)
+                .filter(user -> user.getPassword().equals(hashPassword(password)))
+                .map(user -> {
+                    String token = jwtProvider.generateToken(user.getId(), user.getRole());
+                    return ResponseEntity.ok(Map.<String, Object>of(
+                            "token", token,
+                            "userId", user.getId().toString(),
+                            "email", user.getEmail(),
+                            "nickname", user.getNickname() != null ? user.getNickname() : "",
+                            "role", user.getRole()
+                    ));
+                })
+                .orElse(ResponseEntity.status(401).body(Map.of("error", "이메일 또는 비밀번호가 올바르지 않습니다")));
+    }
+
+    /**
+     * 카카오 로그인 (기존)
      */
     @PostMapping("/kakao")
     public ResponseEntity<Map<String, Object>> kakaoLogin(@RequestBody Map<String, String> body) {
-        String code = body.get("code");
-        if (code == null || code.isBlank()) {
-            return ResponseEntity.badRequest().body(Map.of("error", "인가코드가 필요합니다"));
+        String kakaoUserId = body.getOrDefault("kakaoUserId", "kakao_" + System.currentTimeMillis());
+
+        User user = userRepository.findByKakaoUserId(kakaoUserId)
+                .orElseGet(() -> {
+                    User newUser = User.builder()
+                            .kakaoUserId(kakaoUserId)
+                            .nickname("카카오사용자")
+                            .accountType(AccountType.GENERAL)
+                            .role("USER")
+                            .build();
+                    return userRepository.save(newUser);
+                });
+
+        String token = jwtProvider.generateToken(user.getId(), user.getRole());
+        return ResponseEntity.ok(Map.of(
+                "token", token,
+                "userId", user.getId().toString(),
+                "nickname", user.getNickname() != null ? user.getNickname() : "",
+                "role", user.getRole()
+        ));
+    }
+
+    /**
+     * 토큰 검증
+     */
+    @GetMapping("/me")
+    public ResponseEntity<Map<String, Object>> me(@RequestHeader(value = "Authorization", required = false) String authHeader) {
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            return ResponseEntity.status(401).body(Map.of("error", "인증이 필요합니다"));
         }
 
+        String token = authHeader.substring(7);
+        if (!jwtProvider.validateToken(token)) {
+            return ResponseEntity.status(401).body(Map.of("error", "유효하지 않은 토큰입니다"));
+        }
+
+        var userId = jwtProvider.getUserIdFromToken(token);
+        return userRepository.findById(userId)
+                .map(user -> ResponseEntity.ok(Map.<String, Object>of(
+                        "userId", user.getId().toString(),
+                        "email", user.getEmail() != null ? user.getEmail() : "",
+                        "nickname", user.getNickname() != null ? user.getNickname() : "",
+                        "role", user.getRole()
+                )))
+                .orElse(ResponseEntity.status(401).body(Map.of("error", "사용자를 찾을 수 없습니다")));
+    }
+
+    private String hashPassword(String password) {
         try {
-            // 1. 카카오에서 Access Token 획득
-            String accessToken = exchangeToken(code);
-
-            // 2. 사용자 정보 조회
-            Map<String, Object> userInfo = getUserInfo(accessToken);
-            String kakaoUserId = String.valueOf(userInfo.get("id"));
-
-            // 3. DB에서 사용자 조회 또는 신규 생성
-            User user = userRepository.findByKakaoUserId(kakaoUserId)
-                    .orElseGet(() -> {
-                        User newUser = User.builder()
-                                .kakaoUserId(kakaoUserId)
-                                .accountType(AccountType.GENERAL)
-                                .build();
-                        log.info("New user created: kakaoId={}", kakaoUserId);
-                        return userRepository.save(newUser);
-                    });
-
-            // 4. JWT 발급
-            String token = jwtProvider.generateToken(user.getId(), user.getAccountType().name());
-
-            return ResponseEntity.ok(Map.of(
-                    "token", token,
-                    "userId", user.getId().toString(),
-                    "accountType", user.getAccountType().name()
-            ));
+            MessageDigest md = MessageDigest.getInstance("SHA-256");
+            byte[] hash = md.digest(password.getBytes());
+            return Base64.getEncoder().encodeToString(hash);
         } catch (Exception e) {
-            log.error("Kakao login failed: {}", e.getMessage());
-            return ResponseEntity.internalServerError().body(Map.of("error", "로그인 처리 실패"));
+            throw new RuntimeException("Password hashing failed", e);
         }
-    }
-
-    private String exchangeToken(String code) {
-        if (kakaoClientId.isBlank()) {
-            log.warn("Kakao client ID not configured, using mock token");
-            return "MOCK_ACCESS_TOKEN";
-        }
-
-        WebClient client = WebClient.create("https://kauth.kakao.com");
-        Map response = client.post()
-                .uri("/oauth/token")
-                .header("Content-Type", "application/x-www-form-urlencoded")
-                .bodyValue(String.format(
-                        "grant_type=authorization_code&client_id=%s&redirect_uri=%s&code=%s",
-                        kakaoClientId, redirectUri, code))
-                .retrieve()
-                .bodyToMono(Map.class)
-                .block();
-
-        return (String) response.get("access_token");
-    }
-
-    private Map<String, Object> getUserInfo(String accessToken) {
-        if ("MOCK_ACCESS_TOKEN".equals(accessToken)) {
-            return Map.of("id", "mock_user_" + System.currentTimeMillis());
-        }
-
-        WebClient client = WebClient.create("https://kapi.kakao.com");
-        return client.get()
-                .uri("/v2/user/me")
-                .header("Authorization", "Bearer " + accessToken)
-                .retrieve()
-                .bodyToMono(Map.class)
-                .block();
     }
 }

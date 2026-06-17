@@ -1,5 +1,6 @@
 package com.dividendbot.engine.controller;
 
+import com.dividendbot.engine.config.JwtProvider;
 import com.dividendbot.engine.domain.entity.AccountType;
 import com.dividendbot.engine.domain.entity.User;
 import com.dividendbot.engine.domain.repository.UserRepository;
@@ -25,6 +26,7 @@ import java.util.Map;
 public class AuthController {
 
     private final UserRepository userRepository;
+    private final JwtProvider jwtProvider;
 
     @Value("${kakao.oauth.client-id:}")
     private String kakaoClientId;
@@ -61,10 +63,11 @@ public class AuthController {
                         return userRepository.save(newUser);
                     });
 
-            // 4. JWT 발급 (MVP: 간단한 토큰 반환)
-            // TODO: 실제 JWT 라이브러리 (jjwt) 적용
+            // 4. JWT 발급
+            String token = jwtProvider.generateToken(user.getId(), user.getAccountType().name());
+
             return ResponseEntity.ok(Map.of(
-                    "token", "jwt_" + user.getId().toString(),
+                    "token", token,
                     "userId", user.getId().toString(),
                     "accountType", user.getAccountType().name()
             ));

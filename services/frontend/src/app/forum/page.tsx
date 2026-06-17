@@ -1,5 +1,6 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { fetchNewsByCategory, voteArticle } from '@/lib/api';
 
 type Category = 'ALL' | 'DOMESTIC' | 'OVERSEAS' | 'FOREX' | 'RATE' | 'CRYPTO';
 type Sentiment = 'positive' | 'negative' | 'neutral';
@@ -61,7 +62,43 @@ const CATEGORIES: { value: Category; label: string }[] = [
 
 export default function ForumPage() {
   const [selectedCategory, setSelectedCategory] = useState<Category>('ALL');
-  const [articles] = useState<NewsArticle[]>(MOCK_ARTICLES);
+  const [articles, setArticles] = useState<NewsArticle[]>(MOCK_ARTICLES);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    loadArticles();
+  }, [selectedCategory]);
+
+  const loadArticles = async () => {
+    setLoading(true);
+    try {
+      const data = await fetchNewsByCategory(selectedCategory === 'ALL' ? undefined : selectedCategory);
+      if (data.content && data.content.length > 0) {
+        setArticles(data.content);
+      }
+      // API 비어있으면 Mock 유지
+    } catch {
+      // API 연결 실패 시 Mock 데이터 유지
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVote = async (articleId: string, type: 'positive' | 'negative') => {
+    try {
+      await voteArticle(articleId, type);
+      setArticles(prev => prev.map(a => {
+        if (a.id === articleId) {
+          return type === 'positive'
+            ? { ...a, positiveVotes: a.positiveVotes + 1 }
+            : { ...a, negativeVotes: a.negativeVotes + 1 };
+        }
+        return a;
+      }));
+    } catch {
+      // 투표 실패 시 무시 (로그인 필요 등)
+    }
+  };
 
   const filtered = selectedCategory === 'ALL'
     ? articles

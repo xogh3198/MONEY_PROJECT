@@ -2,7 +2,7 @@ name: Deploy to EC2
 
 on:
   push:
-    branches: [main]  # PR 머지 시에만 트리거 (직접 push 금지는 branch protection으로 설정)
+    branches: [main]
 
 jobs:
   deploy:
@@ -18,16 +18,26 @@ jobs:
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-            cd ~/MONEY_PROJECT || git clone https://github.com/xogh3198/MONEY_PROJECT.git ~/MONEY_PROJECT
+            # 레포가 없으면 클론
+            if [ ! -d ~/MONEY_PROJECT ]; then
+              git clone https://github.com/xogh3198/MONEY_PROJECT.git ~/MONEY_PROJECT
+            fi
+
             cd ~/MONEY_PROJECT
-            git pull origin main
-            docker compose down
-            docker compose up -d --build 2>&1 | tail -50
-            docker system prune -f
+
+            # 로컬 변경 무시하고 강제 최신화
+            git fetch origin main
+            git reset --hard origin/main
+
+            # 빌드 & 실행
+            docker compose down || true
+            docker compose up -d --build 2>&1 | tail -100
+
+            echo ""
             echo "=== Deploy Complete ==="
             docker compose ps
 
-      - name: Report Deploy Result
+      - name: Report Deploy Failure
         if: failure()
         uses: actions/github-script@v7
         with:
@@ -36,6 +46,6 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               title: `🚨 배포 실패 - ${new Date().toISOString().split('T')[0]}`,
-              body: `배포가 실패했습니다.\n\n**커밋:** ${context.sha}\n**로그:** https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}\n\n확인 후 수정해주세요.`,
+              body: `배포가 실패했습니다.\n\n**커밋:** ${context.sha}\n**Actions 로그:** https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}\n\n확인 후 수정해주세요.`,
               labels: ['deploy-failed']
             })

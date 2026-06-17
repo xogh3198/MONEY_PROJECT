@@ -1,0 +1,13 @@
+{
+  "name": "Finance Logic Guardrail",
+  "version": "1.0.0",
+  "description": "코드 작성 시 금융 계산 규칙 위반 여부를 사전 점검합니다. float 사용, 세율 하드코딩, 경계값 테스트 누락을 방지합니다.",
+  "when": {
+    "type": "preToolUse",
+    "toolTypes": ["write"]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "작성하려는 코드에 금융 계산(배당금, 세금, ISA 한도 등)이 포함되어 있다면 다음을 확인하세요: 1) float 대신 decimal 사용 여부 2) 세율이 config/tax_rates.yaml에서 로드되는지 3) 원 단위 이하 절사(Floor) 적용 여부. 금융 계산이 없는 코드라면 그대로 진행하세요."
+  }
+}

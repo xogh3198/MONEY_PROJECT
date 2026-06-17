@@ -1,0 +1,22 @@
+# Java
+*.class
+*.jar
+*.war
+build/
+.gradle/
+out/
+
+# IDE
+.idea/
+*.iml
+
+# Environment
+.env
+.env.local
+
+# Docker
+docker-compose.override.yml
+
+# OS
+.DS_Store
+Thumbs.db

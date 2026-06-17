@@ -1,0 +1,80 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: dividend_bot
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  dividend-engine:
+    build: ./services/dividend-engine
+    ports:
+      - "8080:8080"
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/dividend_bot
+      DB_USERNAME: postgres
+      DB_PASSWORD: postgres
+      JWT_SECRET: production-secret-key-must-be-at-least-32-characters-long
+      KIS_APP_KEY: ${KIS_APP_KEY:-}
+      KIS_APP_SECRET: ${KIS_APP_SECRET:-}
+      KAKAO_CLIENT_ID: ${KAKAO_CLIENT_ID:-}
+      NOTIFICATION_SERVICE_URL: http://notification:8082
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  webhook-gateway:
+    build: ./services/webhook-gateway
+    ports:
+      - "8081:8081"
+    environment:
+      DIVIDEND_ENGINE_URL: http://dividend-engine:8080
+    depends_on:
+      - dividend-engine
+
+  notification:
+    build: ./services/notification
+    ports:
+      - "8082:8082"
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/dividend_bot
+      DB_USERNAME: postgres
+      DB_PASSWORD: postgres
+      KAKAO_SENDER_KEY: ${KAKAO_SENDER_KEY:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  news-service:
+    build: ./services/news-service
+    ports:
+      - "8083:8083"
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/dividend_bot
+      DB_USERNAME: postgres
+      DB_PASSWORD: postgres
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  frontend:
+    build: ./services/frontend
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_ENGINE_API_URL: http://localhost:8080
+      NEXT_PUBLIC_NEWS_API_URL: http://localhost:8083
+
+volumes:
+  postgres_data:

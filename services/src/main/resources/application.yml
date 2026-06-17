@@ -1,0 +1,68 @@
+spring:
+  application:
+    name: dividend-engine
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/dividend_bot}
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:postgres}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    defer-datasource-initialization: true
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+server:
+  port: 8080
+
+# 세율 설정 (하드코딩 금지 - 여기서 로드)
+tax:
+  dividend:
+    general-withholding-rate: 0.154
+  isa:
+    general-tax-free-limit: 2000000
+    special-tax-free-limit: 4000000
+    excess-tax-rate: 0.099
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: always
+
+# 한국투자증권 OpenAPI
+kis:
+  api:
+    base-url: ${KIS_API_URL:https://openapivts.koreainvestment.com:9443}
+    app-key: ${KIS_APP_KEY:}
+    app-secret: ${KIS_APP_SECRET:}
+
+# Notification Service
+services:
+  notification:
+    url: ${NOTIFICATION_SERVICE_URL:http://localhost:8082}
+
+# Swagger
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+
+# JWT
+jwt:
+  secret: ${JWT_SECRET:default-secret-key-for-development-only-change-in-production-32chars}
+  expiration-ms: 86400000  # 24시간
+
+# Kakao OAuth
+kakao:
+  oauth:
+    client-id: ${KAKAO_CLIENT_ID:}
+    redirect-uri: ${KAKAO_REDIRECT_URI:http://localhost:3000/auth/callback}

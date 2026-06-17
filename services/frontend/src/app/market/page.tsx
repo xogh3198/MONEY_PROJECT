@@ -71,18 +71,18 @@ export default function MarketPage() {
       <p className="text-gray-500 mb-6">AI 기반 시장 분석과 예상 흐름을 확인하세요</p>
 
       {/* 지표 카드 목록 */}
-      <div className="grid grid-cols-5 gap-3 mb-8">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-8">
         {MOCK_INDICATORS.map(ind => (
           <button
             key={ind.type}
             onClick={() => setSelected(ind.type)}
-            className={`p-4 rounded-xl text-left transition-all ${
+            className={`p-4 rounded-2xl text-left transition-all duration-200 ${
               selected === ind.type
-                ? 'bg-blue-600 text-white shadow-lg scale-105'
-                : 'bg-white border hover:shadow-md'
+                ? 'bg-accent text-white shadow-lg shadow-accent/25 scale-[1.02]'
+                : 'bg-dark-card border border-dark-border hover:border-accent/30'
             }`}
           >
-            <div className={`text-xs mb-1 ${selected === ind.type ? 'text-blue-100' : 'text-gray-500'}`}>
+            <div className={`text-xs mb-1 ${selected === ind.type ? 'text-blue-100' : 'text-text-secondary'}`}>
               {ind.name}
             </div>
             <div className="text-lg font-bold">
@@ -100,7 +100,7 @@ export default function MarketPage() {
       </div>
 
       {/* 메인 차트 */}
-      <div className="bg-white rounded-xl p-6 shadow-sm border mb-6">
+      <div className="bg-dark-card rounded-2xl p-6 border border-dark-border mb-6">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-bold">{selectedIndicator.name} 추이 (30일)</h2>
           <PredictionBadge prediction={selectedIndicator.prediction} />
@@ -123,7 +123,7 @@ export default function MarketPage() {
       </div>
 
       {/* AI 예측 분석 */}
-      <div className="bg-white rounded-xl p-6 shadow-sm border">
+      <div className="bg-dark-card rounded-2xl p-6 border border-dark-border">
         <h3 className="font-bold text-lg mb-3">🤖 AI 예측 분석</h3>
         <div className="flex items-start gap-4">
           <PredictionBadge prediction={selectedIndicator.prediction} large />
@@ -137,7 +137,7 @@ export default function MarketPage() {
       </div>
 
       {/* 주요 이벤트 캘린더 */}
-      <div className="bg-white rounded-xl p-6 shadow-sm border mt-6">
+      <div className="bg-dark-card rounded-2xl p-6 border border-dark-border mt-6">
         <h3 className="font-bold text-lg mb-3">📅 주요 경제 이벤트</h3>
         <div className="space-y-2">
           <EventItem date="06/18" event="한국 금통위 의사록 공개" impact="금리" />

@@ -1,0 +1,16 @@
+spring:
+  application:
+    name: webhook-gateway
+
+server:
+  port: 8081
+
+services:
+  dividend-engine:
+    url: ${DIVIDEND_ENGINE_URL:http://localhost:8080}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

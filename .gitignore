@@ -1,0 +1,48 @@
+# Binaries
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Go
+/vendor/
+*.test
+*.out
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+*.egg-info/
+
+# Node (admin-dashboard)
+node_modules/
+dist/
+build/
+.next/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Environment
+.env
+.env.local
+.env.production
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+docker-compose.override.yml
+
+# Workspace (에이전트 중간 산출물 - 리뷰 후 삭제 가능)
+# _workspace/ 는 추적함 (에이전트 간 커뮤니케이션 기록)
+
+# Evaluation results
+eval/results/

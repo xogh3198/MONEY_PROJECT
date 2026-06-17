@@ -1,0 +1,12 @@
+{
+  "name": "Self Review After Task",
+  "version": "1.0.0",
+  "description": "Spec 태스크 완료 후 Reviewer 에이전트 기준으로 셀프 리뷰를 수행합니다.",
+  "when": {
+    "type": "postTaskExecution"
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "방금 완료한 태스크의 코드를 .kiro/agents/reviewer.md의 필수 체크 항목 기준으로 셀프 리뷰하세요. Critical 이슈가 발견되면 즉시 수정하세요. 문제가 없으면 '셀프 리뷰 통과'라고 보고하세요."
+  }
+}

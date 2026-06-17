@@ -22,7 +22,8 @@ interface Cycle {
 const CYCLES: Cycle[] = [
   { id: 1, phase: 'MVP v1 Initial', status: 'completed', criticalIssues: 3, result: 'Request Changes → 수정 후 Approve' },
   { id: 2, phase: 'MVP v1.1 Fixes', status: 'completed', criticalIssues: 0, result: '✅ Approve & Merged' },
-  { id: 3, phase: 'Phase 2 - API 연동 & 대시보드', status: 'active', criticalIssues: 0, result: '진행 중...' },
+  { id: 3, phase: 'Phase 2 - API 연동 & 대시보드', status: 'completed', criticalIssues: 0, result: '✅ Approve & Merged' },
+  { id: 4, phase: 'Phase 3 - 한투 API & Scheduler', status: 'active', criticalIssues: 0, result: '진행 중...' },
 ];
 
 const TASKS: Task[] = [
@@ -36,12 +37,18 @@ const TASKS: Task[] = [
   // Fix Cycle
   { id: 'FIX-002', name: 'ISA 누적 배당소득 추적', service: 'dividend-engine', status: 'done', phase: 'Fix', assignee: 'Backend Dev 1', reviewResult: 'approved' },
   { id: 'FIX-004', name: '단위 테스트 8건 추가', service: 'dividend-engine', status: 'done', phase: 'Fix', assignee: 'Backend Dev 1', reviewResult: 'approved' },
-  // Phase 2 (진행 중)
-  { id: 'P2-001', name: 'webhook↔dividend 실제 API 연동', service: 'webhook-gateway', status: 'in-progress', phase: 'Phase 2', assignee: 'Backend Dev 2' },
-  { id: 'P2-002', name: '한투 OpenAPI 실제 연동', service: 'dividend-engine', status: 'planned', phase: 'Phase 2', assignee: 'Backend Dev 1' },
-  { id: 'P2-003', name: 'notification 서비스 구현', service: 'notification', status: 'planned', phase: 'Phase 2', assignee: 'Backend Dev 3' },
-  { id: 'P2-004', name: '관리자 대시보드 API 연동', service: 'admin-dashboard', status: 'in-progress', phase: 'Phase 2', assignee: 'Frontend Dev' },
-  { id: 'P2-005', name: '개발 진행 현황 대시보드', service: 'admin-dashboard', status: 'in-progress', phase: 'Phase 2', assignee: 'Frontend Dev' },
+  // Phase 2 (완료)
+  { id: 'P2-001', name: 'webhook↔dividend 실제 API 연동', service: 'webhook-gateway', status: 'done', phase: 'Phase 2', assignee: 'Backend Dev 2', reviewResult: 'approved' },
+  { id: 'P2-002', name: '한투 OpenAPI 실제 연동', service: 'dividend-engine', status: 'done', phase: 'Phase 2', assignee: 'Backend Dev 1', reviewResult: 'approved' },
+  { id: 'P2-003', name: 'notification 서비스 구현', service: 'notification', status: 'done', phase: 'Phase 2', assignee: 'Backend Dev 3', reviewResult: 'approved' },
+  { id: 'P2-004', name: '관리자 대시보드 API 연동', service: 'admin-dashboard', status: 'done', phase: 'Phase 2', assignee: 'Frontend Dev', reviewResult: 'approved' },
+  { id: 'P2-005', name: '개발 진행 현황 대시보드', service: 'admin-dashboard', status: 'done', phase: 'Phase 2', assignee: 'Frontend Dev', reviewResult: 'approved' },
+  // Phase 3 (진행 중)
+  { id: 'P3-001', name: '한투 OpenAPI 클라이언트 (Token, Rate Limit)', service: 'dividend-engine', status: 'done', phase: 'Phase 3', assignee: 'Backend Dev 1', reviewResult: 'pending' },
+  { id: 'P3-002', name: '배당 데이터 수집 스케줄러 (매일 02:00)', service: 'dividend-engine', status: 'done', phase: 'Phase 3', assignee: 'Backend Dev 1', reviewResult: 'pending' },
+  { id: 'P3-003', name: '배당락일 알림 트리거 (D-3, D-1)', service: 'dividend-engine', status: 'done', phase: 'Phase 3', assignee: 'Backend Dev 1', reviewResult: 'pending' },
+  { id: 'P3-004', name: 'Swagger API 문서 자동 생성', service: 'dividend-engine', status: 'done', phase: 'Phase 3', assignee: 'Backend Dev 1', reviewResult: 'pending' },
+  { id: 'P3-005', name: '대시보드 Phase 3 반영', service: 'admin-dashboard', status: 'done', phase: 'Phase 3', assignee: 'Frontend Dev', reviewResult: 'pending' },
 ];
 
 export default function DevProgress() {

@@ -1,16 +1,13 @@
 name: Deploy to EC2
 
 on:
-  workflow_run:
-    workflows: ["CI Pipeline"]
-    types: [completed]
-    branches: [main]
+  push:
+    branches: [main]  # PR 머지 시에만 트리거 (직접 push 금지는 branch protection으로 설정)
 
 jobs:
   deploy:
-    name: Build & Deploy
+    name: Deploy
     runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -25,5 +22,20 @@ jobs:
             cd ~/MONEY_PROJECT
             git pull origin main
             docker compose down
-            docker compose up -d --build
+            docker compose up -d --build 2>&1 | tail -50
             docker system prune -f
+            echo "=== Deploy Complete ==="
+            docker compose ps
+
+      - name: Report Deploy Result
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `🚨 배포 실패 - ${new Date().toISOString().split('T')[0]}`,
+              body: `배포가 실패했습니다.\n\n**커밋:** ${context.sha}\n**로그:** https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}\n\n확인 후 수정해주세요.`,
+              labels: ['deploy-failed']
+            })

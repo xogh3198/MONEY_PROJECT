@@ -13,37 +13,45 @@ export default function Navigation() {
   const pathname = usePathname();
 
   return (
-    <header className="bg-white border-b border-border sticky top-0 z-50">
-      <div className="max-w-6xl mx-auto px-4">
-        <div className="flex items-center justify-between h-14">
-          {/* 로고 */}
-          <Link href="/" className="flex items-center gap-2">
-            <span className="text-xl font-bold text-primary">MoneyForum</span>
+    <>
+      {/* 상단 헤더 */}
+      <header className="bg-white border-b border-[#e4e4e4] sticky top-0 z-50">
+        <div className="max-w-6xl mx-auto px-4 flex items-center justify-between h-12">
+          <Link href="/" className="text-lg font-bold text-[#03c75a]">
+            MoneyForum
           </Link>
-
-          {/* 메뉴 */}
-          <nav className="flex items-center gap-1">
-            {NAV_ITEMS.map(item => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
-                  pathname === item.href
-                    ? 'text-primary bg-primary/5'
-                    : 'text-text-sub hover:text-text-main hover:bg-gray-50'
-                }`}
-              >
-                {item.label}
-              </Link>
-            ))}
-          </nav>
-
-          {/* 로그인 */}
-          <button className="px-4 py-2 text-sm font-medium text-white bg-primary rounded-md hover:bg-primary-dark transition-colors">
-            로그인
-          </button>
+          <div className="flex items-center gap-4">
+            <input
+              type="text"
+              placeholder="뉴스, 종목 검색"
+              className="w-56 px-3 py-1.5 text-sm border border-[#e4e4e4] rounded bg-[#f5f6f8] focus:outline-none focus:border-[#03c75a]"
+            />
+            <button className="text-sm text-[#03c75a] font-medium hover:underline">로그인</button>
+          </div>
         </div>
-      </div>
-    </header>
+      </header>
+
+      {/* 서브 네비게이션 (탭) */}
+      <nav className="bg-white border-b border-[#e4e4e4]">
+        <div className="max-w-6xl mx-auto px-4 flex">
+          {NAV_ITEMS.map(item => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={`relative px-5 py-3 text-sm font-medium transition-colors ${
+                pathname === item.href
+                  ? 'text-[#03c75a]'
+                  : 'text-[#666] hover:text-[#333]'
+              }`}
+            >
+              {item.label}
+              {pathname === item.href && (
+                <span className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#03c75a]" />
+              )}
+            </Link>
+          ))}
+        </div>
+      </nav>
+    </>
   );
 }

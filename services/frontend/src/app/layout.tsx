@@ -9,10 +9,14 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="ko">
-      <body className="bg-gray-50 min-h-screen">
+    <html lang="ko" className="dark">
+      <head>
+        <link rel="preconnect" href="https://cdn.jsdelivr.net" />
+        <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet" />
+      </head>
+      <body className="min-h-screen">
         <Navigation />
-        <main className="max-w-7xl mx-auto px-4 py-6">
+        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           {children}
         </main>
       </body>

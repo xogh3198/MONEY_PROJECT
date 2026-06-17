@@ -1,8 +1,7 @@
-FROM eclipse-temurin:17-jdk-alpine AS build
+FROM gradle:8.10-jdk17-alpine AS build
 WORKDIR /app
 COPY . .
-RUN chmod +x gradlew 2>/dev/null || true
-RUN gradle build -x test --no-daemon || ./gradlew build -x test --no-daemon
+RUN gradle build -x test --no-daemon
 
 FROM eclipse-temurin:17-jre-alpine
 WORKDIR /app

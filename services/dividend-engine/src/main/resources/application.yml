@@ -10,6 +10,7 @@ spring:
     hibernate:
       ddl-auto: update
     show-sql: false
+    defer-datasource-initialization: true
     properties:
       hibernate:
         format_sql: true

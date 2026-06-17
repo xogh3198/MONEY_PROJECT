@@ -2,8 +2,10 @@ package com.dividendbot.engine.service;
 
 import com.dividendbot.engine.config.TaxRateConfig;
 import com.dividendbot.engine.domain.entity.AccountType;
+import com.dividendbot.engine.domain.entity.DividendAccumulation;
 import com.dividendbot.engine.domain.entity.DividendInfo;
 import com.dividendbot.engine.domain.entity.Portfolio;
+import com.dividendbot.engine.domain.repository.DividendAccumulationRepository;
 import com.dividendbot.engine.domain.repository.DividendInfoRepository;
 import com.dividendbot.engine.domain.repository.PortfolioRepository;
 import com.dividendbot.engine.dto.DividendResultDto;
@@ -26,6 +28,7 @@ public class DividendCalculationService {
 
     private final PortfolioRepository portfolioRepository;
     private final DividendInfoRepository dividendInfoRepository;
+    private final DividendAccumulationRepository accumulationRepository;
     private final TaxRateConfig taxRateConfig;
 
     /**
@@ -101,27 +104,43 @@ public class DividendCalculationService {
     }
 
     /**
-     * 계좌 유형에 따른 세율 결정
+     * 계좌 유형에 따른 세율 결정 (ISA 누적 추적 포함)
      * - GENERAL: 15.4% 원천징수
-     * - ISA: 비과세 한도 내 0%, 초과분 9.9%
+     * - ISA: 누적 배당소득 기준 비과세/9.9% 판단
      * - IRP: 0% (과세이연)
      */
     private BigDecimal resolveTaxRate(AccountType accountType, BigDecimal preTax) {
         return switch (accountType) {
             case GENERAL -> taxRateConfig.getDividend().getGeneralWithholdingRate();
-            case ISA_GENERAL, ISA_SPECIAL -> {
-                BigDecimal limit = accountType == AccountType.ISA_GENERAL
-                        ? taxRateConfig.getIsa().getGeneralTaxFreeLimit()
-                        : taxRateConfig.getIsa().getSpecialTaxFreeLimit();
-                // MVP 단계: 단순 비교 (누적 추적은 Phase 2)
-                if (preTax.compareTo(limit) <= 0) {
-                    yield BigDecimal.ZERO;
-                } else {
-                    yield taxRateConfig.getIsa().getExcessTaxRate();
-                }
-            }
-            case IRP -> BigDecimal.ZERO; // 과세이연
+            case ISA_GENERAL, ISA_SPECIAL -> taxRateConfig.getIsa().getExcessTaxRate();
+            case IRP -> BigDecimal.ZERO;
         };
+    }
+
+    /**
+     * ISA 계좌: 누적 기반 세금 계산
+     * - 누적 비과세 한도 내: 세금 0원
+     * - 한도 초과분: 9.9% 과세
+     * - 한도 돌파 시점: 초과분만 과세
+     */
+    public BigDecimal calculateISATax(UUID userId, int year, AccountType accountType, BigDecimal preTax) {
+        BigDecimal limit = accountType == AccountType.ISA_GENERAL
+                ? taxRateConfig.getIsa().getGeneralTaxFreeLimit()
+                : taxRateConfig.getIsa().getSpecialTaxFreeLimit();
+
+        DividendAccumulation accumulation = accumulationRepository
+                .findByUserIdAndYear(userId, year)
+                .orElse(DividendAccumulation.builder()
+                        .userId(userId)
+                        .year(year)
+                        .build());
+
+        BigDecimal excess = accumulation.calculateExcess(preTax, limit);
+        if (excess.compareTo(BigDecimal.ZERO) <= 0) {
+            return BigDecimal.ZERO;
+        }
+        return excess.multiply(taxRateConfig.getIsa().getExcessTaxRate())
+                .setScale(0, RoundingMode.FLOOR);
     }
 
     private MonthlyDividendSummaryDto buildSummary(int year, int month, List<DividendResultDto> results) {

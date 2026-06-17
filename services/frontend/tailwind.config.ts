@@ -5,22 +5,16 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        dark: {
-          bg: '#0f1117',
-          card: '#1e2235',
-          secondary: '#1a1d29',
-          border: '#2a2d3a',
-        },
-        accent: '#4f8cff',
-        positive: '#00d26a',
-        negative: '#ff4757',
-        neutral: '#6b7280',
-        'text-primary': '#e8eaed',
-        'text-secondary': '#9aa0a6',
-      },
-      borderRadius: {
-        'xl': '12px',
-        '2xl': '16px',
+        primary: '#03c75a',       // 네이버 그린
+        'primary-dark': '#009f47',
+        positive: '#d63031',      // 상승 빨강 (한국 주식 관례)
+        negative: '#0984e3',      // 하락 파랑
+        'card-bg': '#ffffff',
+        'page-bg': '#f5f6f8',
+        'border': '#e8e8e8',
+        'text-main': '#1e1e1e',
+        'text-sub': '#666666',
+        'text-light': '#999999',
       },
     },
   },

@@ -5,54 +5,123 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 
-import java.math.BigDecimal;
-import java.math.RoundingMode;
-import java.time.LocalDate;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * 시장 지표 수집 & 제공 서비스
- * - 1분 간격 갱신 (장중)
- * - 캐시된 지표를 API로 제공
- * - TODO Phase 9: Redis 캐시 전환, 실제 시세 API 연동
+ * 시장 지표 실시간 수집 서비스
+ * 소스: Yahoo Finance (무료, API Key 불필요)
+ *
+ * Yahoo Finance 티커:
+ * - ^KS11 = 코스피
+ * - ^KQ11 = 코스닥
+ * - KRW=X = USD/KRW 환율
+ * - ^GSPC = S&P 500
+ * - BTC-USD = 비트코인
+ * - GC=F = 금
  */
 @Service
 @Slf4j
 public class MarketIndicatorService {
 
+    private final WebClient yahooClient;
     private final Map<String, IndicatorData> cache = new ConcurrentHashMap<>();
-    private final Map<String, List<Map<String, Object>>> historyCache = new ConcurrentHashMap<>();
-    private final WebClient webClient = WebClient.create();
+
+    private static final Map<String, TickerInfo> TICKERS = Map.of(
+            "KOSPI", new TickerInfo("^KS11", "코스피"),
+            "KOSDAQ", new TickerInfo("^KQ11", "코스닥"),
+            "USD_KRW", new TickerInfo("KRW=X", "원/달러"),
+            "SP500", new TickerInfo("^GSPC", "S&P 500"),
+            "BTC", new TickerInfo("BTC-USD", "비트코인"),
+            "GOLD", new TickerInfo("GC=F", "금")
+    );
 
     public MarketIndicatorService() {
-        // 초기 데이터 세팅
-        initializeIndicators();
+        this.yahooClient = WebClient.builder()
+                .baseUrl("https://query1.finance.yahoo.com")
+                .defaultHeader("User-Agent", "Mozilla/5.0")
+                .build();
+
+        // 초기 로딩
+        refreshAllIndicators();
     }
 
     /**
-     * 1분 간격 시장 지표 갱신
+     * 5분 간격으로 Yahoo Finance에서 실데이터 갱신
      */
-    @Scheduled(fixedRate = 60000)
-    public void refreshIndicators() {
-        // TODO: 실제 시세 API 연동 (한투 API, Yahoo Finance 등)
-        // 현재: 시뮬레이션 데이터 (실감나는 변동)
-        for (Map.Entry<String, IndicatorData> entry : cache.entrySet()) {
-            IndicatorData data = entry.getValue();
-            double change = (Math.random() - 0.48) * data.volatility;
-            double newValue = data.value * (1 + change / 100);
-            data.value = Math.round(newValue * 100.0) / 100.0;
-            data.changePercent = BigDecimal.valueOf(change).setScale(2, RoundingMode.HALF_UP).doubleValue();
-            data.updatedAt = LocalDateTime.now();
+    @Scheduled(fixedRate = 300000) // 5분
+    public void refreshAllIndicators() {
+        log.info("=== 시장 지표 갱신 시작 (Yahoo Finance) ===");
+        int success = 0;
 
-            // 히스토리 추가
-            historyCache.computeIfAbsent(entry.getKey(), k -> new ArrayList<>())
-                    .add(Map.of("date", LocalDateTime.now().toString(), "value", data.value));
+        for (Map.Entry<String, TickerInfo> entry : TICKERS.entrySet()) {
+            String key = entry.getKey();
+            TickerInfo ticker = entry.getValue();
+
+            try {
+                Map<String, Object> data = fetchFromYahoo(ticker.symbol);
+                if (data != null) {
+                    double price = toDouble(data.get("regularMarketPrice"));
+                    double prevClose = toDouble(data.get("regularMarketPreviousClose"));
+                    double change = price - prevClose;
+                    double changePercent = prevClose > 0 ? (change / prevClose) * 100 : 0;
+
+                    cache.put(key, new IndicatorData(
+                            ticker.name, price,
+                            Math.round(changePercent * 100.0) / 100.0,
+                            changePercent > 0.5 ? "UP" : changePercent < -0.5 ? "DOWN" : "NEUTRAL",
+                            LocalDateTime.now()
+                    ));
+                    success++;
+                }
+            } catch (Exception e) {
+                log.warn("Yahoo Finance 조회 실패 [{}]: {}", ticker.symbol, e.getMessage());
+            }
+        }
+
+        log.info("=== 시장 지표 갱신 완료: {}/{} ===", success, TICKERS.size());
+    }
+
+    /**
+     * Yahoo Finance v8 API 호출
+     */
+    private Map<String, Object> fetchFromYahoo(String symbol) {
+        try {
+            Map response = yahooClient.get()
+                    .uri(uriBuilder -> uriBuilder
+                            .path("/v8/finance/chart/" + symbol)
+                            .queryParam("interval", "1d")
+                            .queryParam("range", "2d")
+                            .build())
+                    .retrieve()
+                    .bodyToMono(Map.class)
+                    .timeout(Duration.ofSeconds(10))
+                    .block();
+
+            if (response == null) return null;
+
+            Map chart = (Map) response.get("chart");
+            if (chart == null) return null;
+
+            List<Map> results = (List<Map>) chart.get("result");
+            if (results == null || results.isEmpty()) return null;
+
+            Map meta = (Map) results.get(0).get("meta");
+            return meta;
+        } catch (Exception e) {
+            log.debug("Yahoo API error for {}: {}", symbol, e.getMessage());
+            return null;
         }
     }
 
     public List<Map<String, Object>> getAllIndicators() {
+        // 캐시가 비어있으면 기본값 반환
+        if (cache.isEmpty()) {
+            return getDefaultIndicators();
+        }
+
         List<Map<String, Object>> result = new ArrayList<>();
         for (Map.Entry<String, IndicatorData> entry : cache.entrySet()) {
             IndicatorData d = entry.getValue();
@@ -69,49 +138,69 @@ public class MarketIndicatorService {
     }
 
     public List<Map<String, Object>> getHistory(String type, int days) {
-        List<Map<String, Object>> history = historyCache.getOrDefault(type, List.of());
-        // 최근 N일치만 반환 (1분 간격이므로 days * 60 * 24 ≈ 너무 많음, 일봉 기준 제공)
-        int limit = Math.min(days, history.size());
-        return history.subList(Math.max(0, history.size() - limit), history.size());
-    }
+        // Yahoo Finance 히스토리 조회
+        TickerInfo ticker = TICKERS.get(type);
+        if (ticker == null) return List.of();
 
-    private void initializeIndicators() {
-        cache.put("KOSPI", new IndicatorData("코스피", 2847.52, 0.8, "UP"));
-        cache.put("KOSDAQ", new IndicatorData("코스닥", 892.15, 1.2, "NEUTRAL"));
-        cache.put("USD_KRW", new IndicatorData("원/달러", 1342.50, 0.3, "UP"));
-        cache.put("SP500", new IndicatorData("S&P 500", 5892.30, 0.5, "UP"));
-        cache.put("BTC", new IndicatorData("비트코인", 98452, 2.5, "NEUTRAL"));
-        cache.put("GOLD", new IndicatorData("금", 2380, 0.4, "UP"));
+        try {
+            String range = days <= 5 ? "5d" : days <= 30 ? "1mo" : days <= 90 ? "3mo" : "1y";
 
-        // 초기 30일 히스토리 생성
-        for (Map.Entry<String, IndicatorData> entry : cache.entrySet()) {
+            Map response = yahooClient.get()
+                    .uri(uriBuilder -> uriBuilder
+                            .path("/v8/finance/chart/" + ticker.symbol)
+                            .queryParam("interval", "1d")
+                            .queryParam("range", range)
+                            .build())
+                    .retrieve()
+                    .bodyToMono(Map.class)
+                    .timeout(Duration.ofSeconds(10))
+                    .block();
+
+            if (response == null) return List.of();
+
+            Map chart = (Map) response.get("chart");
+            List<Map> results = (List<Map>) chart.get("result");
+            if (results == null || results.isEmpty()) return List.of();
+
+            Map result = results.get(0);
+            List<Integer> timestamps = (List<Integer>) result.get("timestamp");
+            Map indicators = (Map) result.get("indicators");
+            List<Map> quotes = (List<Map>) indicators.get("quote");
+            List<Number> closes = (List<Number>) quotes.get(0).get("close");
+
             List<Map<String, Object>> history = new ArrayList<>();
-            double v = entry.getValue().value;
-            for (int i = 30; i >= 0; i--) {
-                v += (Math.random() - 0.48) * entry.getValue().volatility * v / 100;
-                history.add(Map.of(
-                        "date", LocalDate.now().minusDays(i).toString(),
-                        "value", Math.round(v * 100.0) / 100.0));
+            for (int i = 0; i < Math.min(timestamps.size(), closes.size()); i++) {
+                if (closes.get(i) != null) {
+                    history.add(Map.of(
+                            "date", java.time.Instant.ofEpochSecond(timestamps.get(i)).toString().substring(0, 10),
+                            "value", closes.get(i).doubleValue()
+                    ));
+                }
             }
-            historyCache.put(entry.getKey(), history);
+            return history;
+        } catch (Exception e) {
+            log.warn("Yahoo history fetch failed for {}: {}", type, e.getMessage());
+            return List.of();
         }
     }
 
-    private static class IndicatorData {
-        String name;
-        double value;
-        double changePercent;
-        double volatility;
-        String prediction;
-        LocalDateTime updatedAt;
-
-        IndicatorData(String name, double value, double volatility, String prediction) {
-            this.name = name;
-            this.value = value;
-            this.volatility = volatility;
-            this.prediction = prediction;
-            this.changePercent = 0;
-            this.updatedAt = LocalDateTime.now();
-        }
+    private List<Map<String, Object>> getDefaultIndicators() {
+        return List.of(
+                Map.of("type", "KOSPI", "name", "코스피", "value", 2847.52, "changePercent", 0.0, "prediction", "NEUTRAL", "updatedAt", "loading"),
+                Map.of("type", "KOSDAQ", "name", "코스닥", "value", 892.15, "changePercent", 0.0, "prediction", "NEUTRAL", "updatedAt", "loading"),
+                Map.of("type", "USD_KRW", "name", "원/달러", "value", 1342.5, "changePercent", 0.0, "prediction", "NEUTRAL", "updatedAt", "loading"),
+                Map.of("type", "SP500", "name", "S&P 500", "value", 5892.3, "changePercent", 0.0, "prediction", "NEUTRAL", "updatedAt", "loading"),
+                Map.of("type", "BTC", "name", "비트코인", "value", 98452.0, "changePercent", 0.0, "prediction", "NEUTRAL", "updatedAt", "loading")
+        );
     }
+
+    private double toDouble(Object value) {
+        if (value == null) return 0;
+        if (value instanceof Number) return ((Number) value).doubleValue();
+        try { return Double.parseDouble(value.toString()); } catch (Exception e) { return 0; }
+    }
+
+    private record TickerInfo(String symbol, String name) {}
+
+    private record IndicatorData(String name, double value, double changePercent, String prediction, LocalDateTime updatedAt) {}
 }

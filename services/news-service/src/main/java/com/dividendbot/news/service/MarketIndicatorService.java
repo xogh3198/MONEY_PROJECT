@@ -51,7 +51,7 @@ public class MarketIndicatorService {
     /**
      * 5분 간격으로 Yahoo Finance에서 실데이터 갱신
      */
-    @Scheduled(fixedRate = 300000) // 5분
+    @Scheduled(fixedRate = 60000) // 1분
     public void refreshAllIndicators() {
         log.info("=== 시장 지표 갱신 시작 (Yahoo Finance) ===");
         int success = 0;

@@ -64,7 +64,9 @@ public class MarketIndicatorService {
                 Map<String, Object> data = fetchFromYahoo(ticker.symbol);
                 if (data != null) {
                     double price = toDouble(data.get("regularMarketPrice"));
-                    double prevClose = toDouble(data.get("regularMarketPreviousClose"));
+                    double prevClose = toDouble(data.get("chartPreviousClose"));
+                    if (prevClose == 0) prevClose = toDouble(data.get("previousClose"));
+                    if (prevClose == 0) prevClose = toDouble(data.get("regularMarketPreviousClose"));
                     double change = price - prevClose;
                     double changePercent = prevClose > 0 ? (change / prevClose) * 100 : 0;
 

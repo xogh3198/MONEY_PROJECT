@@ -35,8 +35,8 @@ public class NewsController {
     }
 
     @GetMapping("/hot")
-    public ResponseEntity<?> getHotArticles() {
-        return ResponseEntity.ok(newsService.getHotArticles());
+    public ResponseEntity<?> getHotArticles(@RequestParam(required = false) NewsCategory category) {
+        return ResponseEntity.ok(newsService.getHotArticles(category));
     }
 
     @PostMapping("/{id}/vote")

@@ -12,6 +12,7 @@ import java.util.UUID;
 public interface NewsArticleRepository extends JpaRepository<NewsArticle, UUID> {
     Page<NewsArticle> findByCategory(NewsCategory category, Pageable pageable);
     List<NewsArticle> findTop10ByOrderByViewCountDesc();
+    List<NewsArticle> findTop10ByCategoryOrderByViewCountDesc(NewsCategory category);
     boolean existsByTitle(String title);
     boolean existsBySourceUrl(String sourceUrl);
 }

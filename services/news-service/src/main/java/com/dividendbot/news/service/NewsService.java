@@ -37,7 +37,10 @@ public class NewsService {
         return repository.save(article);
     }
 
-    public List<NewsArticle> getHotArticles() {
+    public List<NewsArticle> getHotArticles(NewsCategory category) {
+        if (category != null) {
+            return repository.findTop10ByCategoryOrderByViewCountDesc(category);
+        }
         return repository.findTop10ByOrderByViewCountDesc();
     }
 

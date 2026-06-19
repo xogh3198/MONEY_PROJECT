@@ -1,5 +1,7 @@
 package com.dividendbot.engine.config;
 
+import com.dividendbot.engine.exception.PortfolioAccessDeniedException;
+import com.dividendbot.engine.exception.PortfolioNotFoundException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -13,6 +15,18 @@ import java.util.Map;
 @RestControllerAdvice
 @Slf4j
 public class GlobalExceptionHandler {
+
+    @ExceptionHandler(PortfolioNotFoundException.class)
+    public ResponseEntity<Map<String, Object>> handlePortfolioNotFound(PortfolioNotFoundException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(errorBody(HttpStatus.NOT_FOUND, "포트폴리오 항목을 찾을 수 없습니다"));
+    }
+
+    @ExceptionHandler(PortfolioAccessDeniedException.class)
+    public ResponseEntity<Map<String, Object>> handlePortfolioAccessDenied(PortfolioAccessDeniedException ex) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(errorBody(HttpStatus.FORBIDDEN, "접근 권한이 없습니다"));
+    }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<Map<String, Object>> handleValidation(MethodArgumentNotValidException ex) {

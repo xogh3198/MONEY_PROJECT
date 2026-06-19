@@ -8,5 +8,6 @@ import java.util.UUID;
 
 public interface ForumCommentRepository extends JpaRepository<ForumComment, UUID> {
     Page<ForumComment> findByArticleIdOrderByCreatedAtDesc(UUID articleId, Pageable pageable);
+    Page<ForumComment> findByPostIdOrderByCreatedAtAsc(UUID postId, Pageable pageable);
     long countByArticleId(UUID articleId);
 }

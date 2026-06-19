@@ -64,6 +64,7 @@ services:
       DB_PASSWORD: postgres
       NAVER_CLIENT_ID: ${NAVER_CLIENT_ID:-}
       NAVER_CLIENT_SECRET: ${NAVER_CLIENT_SECRET:-}
+      JWT_SECRET: production-secret-key-must-be-at-least-32-characters-long
     depends_on:
       postgres:
         condition: service_healthy

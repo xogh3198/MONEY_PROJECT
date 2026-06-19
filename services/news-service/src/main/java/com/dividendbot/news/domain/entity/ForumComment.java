@@ -17,8 +17,14 @@ public class ForumComment {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @Column(name = "article_id", nullable = false)
+    @Column(name = "article_id")
     private UUID articleId;
+
+    @Column(name = "post_id")
+    private UUID postId;
+
+    @Column(name = "parent_comment_id")
+    private UUID parentCommentId;
 
     @Column(name = "user_id", nullable = false)
     private UUID userId;
@@ -26,10 +32,18 @@ public class ForumComment {
     @Column(name = "username", length = 50)
     private String username;
 
-    @Column(nullable = false, columnDefinition = "TEXT")
+    @Column(nullable = false, length = 1000)
     private String content;
 
     @Column(name = "created_at", nullable = false)
     @Builder.Default
     private LocalDateTime createdAt = LocalDateTime.now();
+
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
+
+    public void updateContent(String content) {
+        this.content = content;
+        this.updatedAt = LocalDateTime.now();
+    }
 }

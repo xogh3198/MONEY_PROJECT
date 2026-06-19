@@ -11,6 +11,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -38,10 +39,20 @@ public class NewsService {
     }
 
     public List<NewsArticle> getHotArticles(NewsCategory category) {
+        LocalDateTime since = LocalDateTime.now().minusHours(48);
+        org.springframework.data.domain.Pageable top10 = PageRequest.of(0, 10);
         if (category != null) {
-            return repository.findTop10ByCategoryOrderByViewCountDesc(category);
+            List<NewsArticle> result = repository.findHotArticlesByCategorySince(category, since, top10);
+            if (result.isEmpty()) {
+                return repository.findTop10ByCategoryOrderByViewCountDesc(category);
+            }
+            return result;
         }
-        return repository.findTop10ByOrderByViewCountDesc();
+        List<NewsArticle> result = repository.findHotArticlesSince(since, top10);
+        if (result.isEmpty()) {
+            return repository.findTop10ByOrderByViewCountDesc();
+        }
+        return result;
     }
 
     @Transactional

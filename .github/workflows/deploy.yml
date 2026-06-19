@@ -50,6 +50,15 @@ jobs:
             # 실행
             docker compose up -d
 
+            # DB 마이그레이션 실행 (idempotent - IF NOT EXISTS 사용)
+            echo "=== Running DB Migrations ==="
+            for sql_file in infra/db/*.sql; do
+              if [ -f "$sql_file" ]; then
+                echo "Executing: $sql_file"
+                docker exec -i money_project-postgres-1 psql -U postgres -d dividend_bot < "$sql_file" || true
+              fi
+            done
+
             echo ""
             echo "=== Deploy Complete ==="
             docker compose ps

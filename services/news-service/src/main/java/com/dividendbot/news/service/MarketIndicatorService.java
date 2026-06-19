@@ -162,6 +162,7 @@ public class MarketIndicatorService {
             default -> days <= 5 ? "5d" : days <= 30 ? "1mo" : days <= 90 ? "3mo" : "1y";
         };
 
+        try {
             Map response = yahooClient.get()
                     .uri(uriBuilder -> uriBuilder
                             .path("/v8/finance/chart/" + ticker.symbol)

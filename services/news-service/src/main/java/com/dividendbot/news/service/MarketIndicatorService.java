@@ -139,18 +139,33 @@ public class MarketIndicatorService {
         return result;
     }
 
-    public List<Map<String, Object>> getHistory(String type, int days) {
+    public List<Map<String, Object>> getHistory(String type, int days, String interval) {
         // Yahoo Finance 히스토리 조회
         TickerInfo ticker = TICKERS.get(type);
         if (ticker == null) return List.of();
 
-        try {
-            String range = days <= 5 ? "5d" : days <= 30 ? "1mo" : days <= 90 ? "3mo" : "1y";
+        // interval 유효성 검사 및 range 결정
+        String validInterval = switch (interval) {
+            case "1m" -> "1m";
+            case "5m" -> "5m";
+            case "15m" -> "15m";
+            case "1h" -> "1h";
+            default -> "1d";
+        };
+
+        // interval에 따른 적절한 range 설정
+        String range = switch (validInterval) {
+            case "1m" -> "1d";       // 1분봉: 최근 1일
+            case "5m" -> "5d";       // 5분봉: 최근 5일
+            case "15m" -> "5d";      // 15분봉: 최근 5일
+            case "1h" -> days <= 7 ? "5d" : "1mo";  // 1시간봉: 5일~1개월
+            default -> days <= 5 ? "5d" : days <= 30 ? "1mo" : days <= 90 ? "3mo" : "1y";
+        };
 
             Map response = yahooClient.get()
                     .uri(uriBuilder -> uriBuilder
                             .path("/v8/finance/chart/" + ticker.symbol)
-                            .queryParam("interval", "1d")
+                            .queryParam("interval", validInterval)
                             .queryParam("range", range)
                             .build())
                     .retrieve()
@@ -173,8 +188,17 @@ public class MarketIndicatorService {
             List<Map<String, Object>> history = new ArrayList<>();
             for (int i = 0; i < Math.min(timestamps.size(), closes.size()); i++) {
                 if (closes.get(i) != null) {
+                    String dateStr;
+                    if ("1d".equals(validInterval)) {
+                        dateStr = java.time.Instant.ofEpochSecond(timestamps.get(i)).toString().substring(0, 10);
+                    } else {
+                        // For intraday, include time
+                        dateStr = java.time.Instant.ofEpochSecond(timestamps.get(i))
+                                .atZone(java.time.ZoneId.of("Asia/Seoul"))
+                                .toLocalDateTime().toString().substring(0, 16);
+                    }
                     history.add(Map.of(
-                            "date", java.time.Instant.ofEpochSecond(timestamps.get(i)).toString().substring(0, 10),
+                            "date", dateStr,
                             "value", closes.get(i).doubleValue()
                     ));
                 }

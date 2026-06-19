@@ -30,7 +30,8 @@ public class MarketIndicatorController {
     @GetMapping("/indicators/{type}/history")
     public ResponseEntity<List<Map<String, Object>>> getHistory(
             @PathVariable String type,
-            @RequestParam(defaultValue = "30") int days) {
-        return ResponseEntity.ok(marketIndicatorService.getHistory(type, days));
+            @RequestParam(defaultValue = "30") int days,
+            @RequestParam(defaultValue = "1d") String interval) {
+        return ResponseEntity.ok(marketIndicatorService.getHistory(type, days, interval));
     }
 }

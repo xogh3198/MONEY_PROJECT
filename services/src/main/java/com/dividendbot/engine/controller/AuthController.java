@@ -116,6 +116,53 @@ public class AuthController {
     }
 
     /**
+     * 네이버 로그인
+     */
+    @PostMapping("/naver")
+    public ResponseEntity<Map<String, Object>> naverLogin(@RequestBody Map<String, String> body) {
+        String naverId = body.get("naverId");
+        String email = body.getOrDefault("email", "");
+        String nickname = body.getOrDefault("nickname", "네이버사용자");
+
+        if (naverId == null || naverId.isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "네이버 ID가 필요합니다"));
+        }
+
+        String naverKey = "naver_" + naverId;
+
+        // 기존 네이버 유저 검색 (kakaoUserId 필드에 naver_ 접두사로 저장)
+        User user = userRepository.findByKakaoUserId(naverKey)
+                .orElseGet(() -> {
+                    // 이메일로 기존 계정 검색
+                    if (!email.isEmpty()) {
+                        var existingUser = userRepository.findByEmail(email);
+                        if (existingUser.isPresent()) {
+                            // 기존 이메일 계정에 네이버 연동
+                            return existingUser.get();
+                        }
+                    }
+                    // 새 유저 생성
+                    User newUser = User.builder()
+                            .kakaoUserId(naverKey)
+                            .email(email.isEmpty() ? null : email)
+                            .nickname(nickname)
+                            .accountType(AccountType.GENERAL)
+                            .role("USER")
+                            .build();
+                    return userRepository.save(newUser);
+                });
+
+        String token = jwtProvider.generateToken(user.getId(), user.getRole());
+        return ResponseEntity.ok(Map.of(
+                "token", token,
+                "userId", user.getId().toString(),
+                "email", user.getEmail() != null ? user.getEmail() : "",
+                "nickname", user.getNickname() != null ? user.getNickname() : "",
+                "role", user.getRole()
+        ));
+    }
+
+    /**
      * 토큰 검증
      */
     @GetMapping("/me")

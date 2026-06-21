@@ -21,10 +21,10 @@ import java.util.*;
  * 네이버 랭킹뉴스 크롤러
  *
  * 네이버 "많이 본 뉴스" 랭킹 페이지를 크롤링하여
- * DB에 있는 기사의 인기도(viewCount)를 업데이트하거나,
- * 없는 기사는 높은 초기 인기도와 함께 저장합니다.
+ * 인기도(viewCount) 높은 기사를 DB에 저장합니다.
  *
- * 이를 통해 사이트 초반에도 실제 인기 기사가 상위에 노출됩니다.
+ * 기존 기사 매칭보다는 랭킹 기사 자체를 높은 viewCount로 저장하여
+ * 인기뉴스 알고리즘에 자연스럽게 반영되도록 합니다.
  *
  * 실행: 30분 간격
  */
@@ -36,115 +36,110 @@ public class NaverRankingCrawler {
     private final NewsArticleRepository newsRepository;
 
     private static final String RANKING_URL = "https://news.naver.com/main/ranking/popularDay.naver";
-    private static final int[] RANK_SCORES = {100, 80, 60, 45, 30}; // 1위~5위 점수
+    // 1위~5위 인기도 점수 (viewCount에 반영)
+    private static final int[] RANK_SCORES = {150, 120, 90, 70, 50};
 
     /**
      * 30분 간격으로 네이버 랭킹뉴스 크롤링
      */
-    @Scheduled(fixedRate = 1800000, initialDelay = 30000)
+    @Scheduled(fixedRate = 1800000, initialDelay = 10000)
     @Transactional
     public void crawlRankingNews() {
         log.info("=== 네이버 랭킹뉴스 수집 시작 ===");
-        int updated = 0;
-        int created = 0;
+        int saved = 0;
+        int boosted = 0;
 
         try {
             Document doc = Jsoup.connect(RANKING_URL)
-                    .userAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
-                    .timeout(10000)
+                    .userAgent("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+                    .header("Accept", "text/html,application/xhtml+xml")
+                    .header("Accept-Language", "ko-KR,ko;q=0.9")
+                    .timeout(15000)
                     .get();
 
-            // 각 언론사별 랭킹 박스에서 기사 추출
-            Elements rankingItems = doc.select("a[href*=n.news.naver.com/article]");
+            // 네이버 랭킹 페이지에서 기사 링크 추출
+            // 패턴: n.news.naver.com/article/OID/AID
+            Elements links = doc.select("a[href*=n.news.naver.com/article]");
 
-            Map<String, Integer> articleScores = new HashMap<>();
+            // 순서대로 처리 - 먼저 나오는 것이 상위 랭킹
+            int rankCounter = 0;
+            int pressCounter = 0;
+            String lastPress = "";
 
-            for (Element link : rankingItems) {
+            for (Element link : links) {
                 String url = link.attr("href");
+                if (!url.startsWith("http")) {
+                    url = "https:" + url;
+                }
+
                 String title = link.text().trim();
+                if (title.isEmpty() || title.length() < 5) continue;
 
-                // 순위 추출: 부모 요소에서 순위 정보 파악
-                Element parent = link.parent();
-                int rank = extractRank(parent, link);
-                int score = (rank >= 1 && rank <= 5) ? RANK_SCORES[rank - 1] : 20;
-
-                if (!title.isEmpty() && !url.isEmpty()) {
-                    // 같은 URL이 여러 번 나올 수 있으므로 최대 점수 유지
-                    articleScores.merge(url + "|||" + title, score, Math::max);
+                // 언론사별로 1~5위가 반복됨
+                String currentPress = extractPressFromUrl(url);
+                if (!currentPress.equals(lastPress)) {
+                    rankCounter = 0;
+                    lastPress = currentPress;
+                    pressCounter++;
                 }
-            }
+                rankCounter++;
 
-            for (Map.Entry<String, Integer> entry : articleScores.entrySet()) {
-                String[] parts = entry.getKey().split("\\|\\|\\|", 2);
-                String url = parts[0];
-                String title = parts.length > 1 ? parts[1] : "";
-                int score = entry.getValue();
+                // 각 언론사 최대 5개까지만
+                if (rankCounter > 5) continue;
 
-                try {
-                    // 이미 DB에 있는 기사인지 확인 (URL 또는 제목 매칭)
-                    Optional<NewsArticle> existing = Optional.empty();
-                    if (newsRepository.existsBySourceUrl(url)) {
-                        existing = newsRepository.findBySourceUrl(url);
-                    } else if (!title.isEmpty() && newsRepository.existsByTitle(title)) {
-                        existing = newsRepository.findFirstByTitle(title);
-                    }
+                int score = (rankCounter <= 5) ? RANK_SCORES[rankCounter - 1] : 30;
+                // 상위 언론사일수록 약간 더 높은 점수
+                if (pressCounter <= 3) score += 20;
 
+                // 이미 DB에 있는지 확인 (URL 기준)
+                if (newsRepository.existsBySourceUrl(url)) {
+                    // 기존 기사 인기도 부스트
+                    Optional<NewsArticle> existing = newsRepository.findBySourceUrl(url);
                     if (existing.isPresent()) {
-                        // 기존 기사: 인기도 가중치 추가
-                        NewsArticle article = existing.get();
-                        article.addRankingBoost(score);
-                        newsRepository.save(article);
-                        updated++;
-                    } else if (!title.isEmpty()) {
-                        // 새 기사: 높은 초기 인기도로 저장
-                        NewsArticle article = NewsArticle.builder()
-                                .title(title)
-                                .summary("")
-                                .sourceUrl(url)
-                                .sourceName(extractSourceFromNaverUrl(url))
-                                .category(classifyCategory(title))
-                                .sentiment(analyzeSentiment(title))
-                                .viewCount(score)
-                                .publishedAt(LocalDateTime.now())
-                                .build();
-                        newsRepository.save(article);
-                        created++;
+                        existing.get().addRankingBoost(score);
+                        newsRepository.save(existing.get());
+                        boosted++;
                     }
-                } catch (Exception e) {
-                    log.debug("랭킹 기사 처리 실패: {}", e.getMessage());
+                    continue;
                 }
+
+                // 제목으로 중복 확인
+                if (newsRepository.existsByTitle(title)) {
+                    Optional<NewsArticle> existing = newsRepository.findFirstByTitle(title);
+                    if (existing.isPresent()) {
+                        existing.get().addRankingBoost(score);
+                        newsRepository.save(existing.get());
+                        boosted++;
+                    }
+                    continue;
+                }
+
+                // 새 기사 저장 - 높은 초기 viewCount
+                NewsArticle article = NewsArticle.builder()
+                        .title(title)
+                        .summary("")
+                        .sourceUrl(url)
+                        .sourceName(currentPress)
+                        .category(classifyCategory(title))
+                        .sentiment(analyzeSentiment(title))
+                        .viewCount(score)
+                        .publishedAt(LocalDateTime.now())
+                        .build();
+
+                newsRepository.save(article);
+                saved++;
             }
 
         } catch (Exception e) {
-            log.warn("네이버 랭킹뉴스 크롤링 실패: {}", e.getMessage());
+            log.error("네이버 랭킹뉴스 크롤링 실패: {}", e.getMessage(), e);
         }
 
-        log.info("=== 네이버 랭킹뉴스 수집 완료: 업데이트 {}건, 신규 {}건 ===", updated, created);
+        log.info("=== 네이버 랭킹뉴스 수집 완료: 신규 {}건, 부스트 {}건 ===", saved, boosted);
     }
 
-    /**
-     * 순위 추출 - 텍스트에서 숫자 또는 위치 기반
-     */
-    private int extractRank(Element parent, Element link) {
-        if (parent == null) return 0;
-
-        // 텍스트에서 "N위" 패턴 찾기
-        String parentText = parent.text();
-        for (int i = 1; i <= 5; i++) {
-            if (parentText.startsWith(i + "위")) return i;
-        }
-
-        // 형제 요소 중 순서로 추정
-        Elements siblings = parent.parent() != null ? parent.parent().children() : new Elements();
-        int index = siblings.indexOf(parent);
-        if (index >= 0 && index < 5) return index + 1;
-
-        return 0;
-    }
-
-    private String extractSourceFromNaverUrl(String url) {
-        // n.news.naver.com/article/018/... → 언론사 코드로 매칭
+    private String extractPressFromUrl(String url) {
         try {
+            // https://n.news.naver.com/article/018/0006311260
             String[] parts = url.split("/article/");
             if (parts.length > 1) {
                 String oid = parts[1].split("/")[0];
@@ -185,22 +180,22 @@ public class NaverRankingCrawler {
 
     private NewsCategory classifyCategory(String title) {
         String lower = title.toLowerCase();
-        if (lower.contains("환율") || lower.contains("달러") || lower.contains("원화")) return NewsCategory.FOREX;
-        if (lower.contains("금리") || lower.contains("기준금리")) return NewsCategory.RATE;
-        if (lower.contains("비트코인") || lower.contains("암호화폐") || lower.contains("코인")) return NewsCategory.CRYPTO;
-        if (lower.contains("나스닥") || lower.contains("s&p") || lower.contains("다우") || lower.contains("미국증시")) return NewsCategory.OVERSEAS;
+        if (lower.contains("환율") || lower.contains("달러") || lower.contains("원화") || lower.contains("엔화")) return NewsCategory.FOREX;
+        if (lower.contains("금리") || lower.contains("기준금리") || lower.contains("한은")) return NewsCategory.RATE;
+        if (lower.contains("비트코인") || lower.contains("암호화폐") || lower.contains("코인") || lower.contains("이더리움")) return NewsCategory.CRYPTO;
+        if (lower.contains("나스닥") || lower.contains("s&p") || lower.contains("다우") || lower.contains("미국증시") || lower.contains("월가")) return NewsCategory.OVERSEAS;
         if (lower.contains("코스피") || lower.contains("코스닥") || lower.contains("주가") || lower.contains("증시")
-                || lower.contains("삼성") || lower.contains("반도체") || lower.contains("주식")) return NewsCategory.DOMESTIC;
-        return NewsCategory.DOMESTIC; // 경제 뉴스 사이트이므로 기본값
+                || lower.contains("삼성") || lower.contains("반도체") || lower.contains("주식") || lower.contains("상장")) return NewsCategory.DOMESTIC;
+        return NewsCategory.DOMESTIC;
     }
 
     private NewsSentiment analyzeSentiment(String text) {
         String lower = text.toLowerCase();
         int pos = 0, neg = 0;
-        for (String w : new String[]{"상승", "호조", "최고", "돌파", "반등", "회복", "강세", "랠리"}) {
+        for (String w : new String[]{"상승", "호조", "최고", "돌파", "반등", "회복", "강세", "랠리", "신고가", "흑자"}) {
             if (lower.contains(w)) pos++;
         }
-        for (String w : new String[]{"하락", "위기", "급락", "폭락", "불안", "침체", "약세", "우려"}) {
+        for (String w : new String[]{"하락", "위기", "급락", "폭락", "불안", "침체", "약세", "우려", "적자", "손실"}) {
             if (lower.contains(w)) neg++;
         }
         if (pos > neg) return NewsSentiment.POSITIVE;

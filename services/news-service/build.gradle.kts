@@ -24,6 +24,9 @@ dependencies {
     // RSS 파싱
     implementation("com.rometools:rome:2.1.0")
 
+    // HTML 파싱 (네이버 랭킹뉴스 크롤링)
+    implementation("org.jsoup:jsoup:1.17.2")
+
     // JWT
     implementation("io.jsonwebtoken:jjwt-api:0.12.5")
     runtimeOnly("io.jsonwebtoken:jjwt-impl:0.12.5")

@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.Query;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 public interface NewsArticleRepository extends JpaRepository<NewsArticle, UUID> {
@@ -17,6 +18,8 @@ public interface NewsArticleRepository extends JpaRepository<NewsArticle, UUID> 
     List<NewsArticle> findTop10ByCategoryOrderByViewCountDesc(NewsCategory category);
     boolean existsByTitle(String title);
     boolean existsBySourceUrl(String sourceUrl);
+    Optional<NewsArticle> findBySourceUrl(String sourceUrl);
+    Optional<NewsArticle> findFirstByTitle(String title);
 
     @Query("SELECT a FROM NewsArticle a WHERE a.publishedAt >= :since ORDER BY (a.viewCount + a.positiveVotes * 2 + a.commentCount * 3) DESC")
     List<NewsArticle> findHotArticlesSince(LocalDateTime since, Pageable pageable);

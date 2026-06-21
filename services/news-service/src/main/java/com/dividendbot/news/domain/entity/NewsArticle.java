@@ -64,4 +64,10 @@ public class NewsArticle {
     public void addPositiveVote() { this.positiveVotes++; }
     public void addNegativeVote() { this.negativeVotes++; }
     public void incrementCommentCount() { this.commentCount++; }
+
+    /**
+     * 네이버 랭킹 뉴스에 등장한 기사에 인기도 부스트 추가
+     * viewCount에 랭킹 점수를 더하여 인기뉴스 알고리즘에 반영
+     */
+    public void addRankingBoost(int score) { this.viewCount += score; }
 }

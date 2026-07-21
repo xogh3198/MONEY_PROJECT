@@ -23,7 +23,7 @@ jobs:
             set -euo pipefail
 
             # Amazon Linux 2023 초기 구성
-            sudo dnf install -y git docker
+            sudo dnf install -y git docker curl
             sudo systemctl enable --now docker
             sudo usermod -aG docker "$USER"
 
@@ -64,13 +64,44 @@ jobs:
             # 실행
             sudo docker compose up -d --no-build
 
-            # DB 마이그레이션 실행 (idempotent - IF NOT EXISTS 사용)
+            # JPA가 기본 테이블을 생성하고 각 서비스가 정상화될 때까지 대기
+            wait_for_health() {
+              service_name="$1"
+              port="$2"
+
+              for attempt in $(seq 1 90); do
+                if curl --fail --silent --show-error "http://127.0.0.1:${port}/actuator/health" | grep -q '"status":"UP"'; then
+                  echo "${service_name} is healthy"
+                  return 0
+                fi
+
+                echo "Waiting for ${service_name} (${attempt}/90)..."
+                sleep 2
+              done
+
+              echo "${service_name} did not become healthy" >&2
+              sudo docker compose ps
+              sudo docker compose logs --tail=200 "$service_name"
+              return 1
+            }
+
+            wait_for_health dividend-engine 8080
+            wait_for_health webhook-gateway 8081
+            wait_for_health notification 8082
+            wait_for_health news-service 8083
+
+            # 참조용 SQL을 제외하고 실제 DB 마이그레이션만 순서대로 실행
             echo "=== Running DB Migrations ==="
-            for sql_file in infra/db/*.sql; do
-              if [ -f "$sql_file" ]; then
-                echo "Executing: $sql_file"
-                sudo docker exec -i money_project-postgres-1 psql -U postgres -d dividend_bot < "$sql_file" || true
-              fi
+            migration_files=(
+              infra/db/V001__portfolios_add_dividend_fields.sql
+              infra/db/V2__create_notification_preferences.sql
+              infra/db/V3__create_forum_posts_and_votes.sql
+            )
+
+            for sql_file in "${migration_files[@]}"; do
+              echo "Executing: $sql_file"
+              sudo docker exec -i money_project-postgres-1 \
+                psql -v ON_ERROR_STOP=1 -U postgres -d dividend_bot < "$sql_file"
             done
 
             echo ""

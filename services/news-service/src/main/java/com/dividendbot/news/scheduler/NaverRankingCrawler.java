@@ -20,11 +20,9 @@ import java.util.*;
 /**
  * 네이버 랭킹뉴스 크롤러
  *
- * 네이버 "많이 본 뉴스" 랭킹 페이지를 크롤링하여
- * 인기도(viewCount) 높은 기사를 DB에 저장합니다.
+ * 네이버 "많이 본 뉴스" 랭킹 페이지에서 금융 관련 기사만 수집합니다.
  *
- * 기존 기사 매칭보다는 랭킹 기사 자체를 높은 viewCount로 저장하여
- * 인기뉴스 알고리즘에 자연스럽게 반영되도록 합니다.
+ * 외부 랭킹 점수는 InvestBoard의 실제 조회수와 분리해 저장합니다.
  *
  * 실행: 30분 간격
  */
@@ -36,7 +34,7 @@ public class NaverRankingCrawler {
     private final NewsArticleRepository newsRepository;
 
     private static final String RANKING_URL = "https://news.naver.com/main/ranking/popularDay.naver";
-    // 1위~5위 인기도 점수 (viewCount에 반영)
+    // 1위~5위 외부 트렌드 점수
     private static final int[] RANK_SCORES = {150, 120, 90, 70, 50};
 
     /**
@@ -74,6 +72,7 @@ public class NaverRankingCrawler {
 
                 String title = link.text().trim();
                 if (title.isEmpty() || title.length() < 5) continue;
+                if (!isFinanciallyRelevant(title)) continue;
 
                 // 언론사별로 1~5위가 반복됨
                 String currentPress = extractPressFromUrl(url);
@@ -93,10 +92,10 @@ public class NaverRankingCrawler {
 
                 // 이미 DB에 있는지 확인 (URL 기준)
                 if (newsRepository.existsBySourceUrl(url)) {
-                    // 기존 기사 인기도 부스트
+                    // 기존 기사 외부 트렌드 점수 갱신 (누적하지 않음)
                     Optional<NewsArticle> existing = newsRepository.findBySourceUrl(url);
                     if (existing.isPresent()) {
-                        existing.get().addRankingBoost(score);
+                        existing.get().updateExternalTrendScore(score);
                         newsRepository.save(existing.get());
                         boosted++;
                     }
@@ -107,14 +106,14 @@ public class NaverRankingCrawler {
                 if (newsRepository.existsByTitle(title)) {
                     Optional<NewsArticle> existing = newsRepository.findFirstByTitle(title);
                     if (existing.isPresent()) {
-                        existing.get().addRankingBoost(score);
+                        existing.get().updateExternalTrendScore(score);
                         newsRepository.save(existing.get());
                         boosted++;
                     }
                     continue;
                 }
 
-                // 새 기사 저장 - 높은 초기 viewCount
+                // 새 기사 저장 - 외부 트렌드 점수만 부여
                 NewsArticle article = NewsArticle.builder()
                         .title(title)
                         .summary("")
@@ -122,7 +121,7 @@ public class NaverRankingCrawler {
                         .sourceName(currentPress)
                         .category(classifyCategory(title))
                         .sentiment(analyzeSentiment(title))
-                        .viewCount(score)
+                        .externalTrendScore(score)
                         .publishedAt(LocalDateTime.now())
                         .build();
 
@@ -135,6 +134,17 @@ public class NaverRankingCrawler {
         }
 
         log.info("=== 네이버 랭킹뉴스 수집 완료: 신규 {}건, 부스트 {}건 ===", saved, boosted);
+    }
+
+    private boolean isFinanciallyRelevant(String title) {
+        String lower = title.toLowerCase();
+        return List.of(
+                "주가", "증시", "코스피", "코스닥", "주식", "투자", "펀드", "etf",
+                "금리", "환율", "달러", "원화", "엔화", "채권", "금융", "은행", "보험",
+                "집값", "부동산", "청약", "전세", "대출", "반도체", "삼성전자", "하이닉스",
+                "현대차", "수출", "무역", "물가", "경제", "실적", "매출", "영업이익",
+                "비트코인", "암호화폐", "코인", "이더리움"
+        ).stream().anyMatch(lower::contains);
     }
 
     private String extractPressFromUrl(String url) {

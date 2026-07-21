@@ -44,26 +44,14 @@ public class NewsService {
         if (category != null) {
             List<NewsArticle> result = repository.findHotArticlesByCategorySince(category, since, top10);
             if (result.isEmpty()) {
-                return repository.findTop10ByCategoryOrderByViewCountDesc(category);
+                return repository.findPopularArticlesByCategory(category, top10);
             }
             return result;
         }
         List<NewsArticle> result = repository.findHotArticlesSince(since, top10);
         if (result.isEmpty()) {
-            return repository.findTop10ByOrderByViewCountDesc();
+            return repository.findPopularArticles(top10);
         }
         return result;
-    }
-
-    @Transactional
-    public void vote(UUID articleId, String type) {
-        NewsArticle article = repository.findById(articleId)
-                .orElseThrow(() -> new IllegalArgumentException("기사를 찾을 수 없습니다"));
-        if ("positive".equals(type)) {
-            article.addPositiveVote();
-        } else {
-            article.addNegativeVote();
-        }
-        repository.save(article);
     }
 }

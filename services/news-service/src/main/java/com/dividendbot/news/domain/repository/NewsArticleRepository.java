@@ -14,16 +14,24 @@ import java.util.UUID;
 
 public interface NewsArticleRepository extends JpaRepository<NewsArticle, UUID> {
     Page<NewsArticle> findByCategory(NewsCategory category, Pageable pageable);
-    List<NewsArticle> findTop10ByOrderByViewCountDesc();
-    List<NewsArticle> findTop10ByCategoryOrderByViewCountDesc(NewsCategory category);
     boolean existsByTitle(String title);
     boolean existsBySourceUrl(String sourceUrl);
     Optional<NewsArticle> findBySourceUrl(String sourceUrl);
     Optional<NewsArticle> findFirstByTitle(String title);
 
-    @Query("SELECT a FROM NewsArticle a WHERE a.publishedAt >= :since ORDER BY (a.viewCount + a.positiveVotes * 2 + a.commentCount * 3) DESC")
+    @Query("SELECT a FROM NewsArticle a WHERE a.publishedAt >= :since " +
+            "ORDER BY (a.viewCount + a.positiveVotes * 5 + a.negativeVotes * 2 + a.commentCount * 6 + a.externalTrendScore) DESC, a.publishedAt DESC")
     List<NewsArticle> findHotArticlesSince(LocalDateTime since, Pageable pageable);
 
-    @Query("SELECT a FROM NewsArticle a WHERE a.category = :category AND a.publishedAt >= :since ORDER BY (a.viewCount + a.positiveVotes * 2 + a.commentCount * 3) DESC")
+    @Query("SELECT a FROM NewsArticle a WHERE a.category = :category AND a.publishedAt >= :since " +
+            "ORDER BY (a.viewCount + a.positiveVotes * 5 + a.negativeVotes * 2 + a.commentCount * 6 + a.externalTrendScore) DESC, a.publishedAt DESC")
     List<NewsArticle> findHotArticlesByCategorySince(NewsCategory category, LocalDateTime since, Pageable pageable);
+
+    @Query("SELECT a FROM NewsArticle a " +
+            "ORDER BY (a.viewCount + a.positiveVotes * 5 + a.negativeVotes * 2 + a.commentCount * 6 + a.externalTrendScore) DESC, a.publishedAt DESC")
+    List<NewsArticle> findPopularArticles(Pageable pageable);
+
+    @Query("SELECT a FROM NewsArticle a WHERE a.category = :category " +
+            "ORDER BY (a.viewCount + a.positiveVotes * 5 + a.negativeVotes * 2 + a.commentCount * 6 + a.externalTrendScore) DESC, a.publishedAt DESC")
+    List<NewsArticle> findPopularArticlesByCategory(NewsCategory category, Pageable pageable);
 }

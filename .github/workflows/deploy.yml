@@ -20,6 +20,18 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           command_timeout: 30m
           script: |
+            set -euo pipefail
+
+            # Amazon Linux 2023 초기 구성
+            sudo dnf install -y git docker
+            sudo systemctl enable --now docker
+            sudo usermod -aG docker "$USER"
+
+            if ! sudo docker compose version >/dev/null 2>&1; then
+              echo "Docker Compose v2 plugin is required" >&2
+              exit 1
+            fi
+
             # 스왑 설정 (없으면 추가 — OOM 방지)
             if [ ! -f /swapfile ]; then
               sudo dd if=/dev/zero of=/swapfile bs=128M count=16
@@ -39,27 +51,27 @@ jobs:
             git reset --hard origin/main
 
             # Docker 빌드 캐시 정리 (디스크 확보)
-            docker builder prune -f
-            docker image prune -f
+            sudo docker builder prune -f
+            sudo docker image prune -f
 
             # 순차 빌드 (메모리 부족 방지)
-            docker compose build dividend-engine
-            docker compose build webhook-gateway
-            docker compose build notification
-            docker compose build news-service
+            sudo docker compose build dividend-engine
+            sudo docker compose build webhook-gateway
+            sudo docker compose build notification
+            sudo docker compose build news-service
 
             # 실행
-            docker compose up -d
+            sudo docker compose up -d
 
             # DB 마이그레이션 실행 (idempotent - IF NOT EXISTS 사용)
             echo "=== Running DB Migrations ==="
             for sql_file in infra/db/*.sql; do
               if [ -f "$sql_file" ]; then
                 echo "Executing: $sql_file"
-                docker exec -i money_project-postgres-1 psql -U postgres -d dividend_bot < "$sql_file" || true
+                sudo docker exec -i money_project-postgres-1 psql -U postgres -d dividend_bot < "$sql_file" || true
               fi
             done
 
             echo ""
             echo "=== Deploy Complete ==="
-            docker compose ps
+            sudo docker compose ps

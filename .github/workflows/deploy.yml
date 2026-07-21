@@ -55,13 +55,21 @@ jobs:
             sudo docker image prune -f
 
             # 순차 빌드 (메모리 부족 방지)
-            sudo docker compose build dividend-engine
-            sudo docker compose build webhook-gateway
-            sudo docker compose build notification
-            sudo docker compose build news-service
+            if sudo docker buildx version >/dev/null 2>&1; then
+              sudo docker compose build dividend-engine
+              sudo docker compose build webhook-gateway
+              sudo docker compose build notification
+              sudo docker compose build news-service
+            else
+              echo "Buildx is unavailable; using the Docker legacy builder"
+              sudo env DOCKER_BUILDKIT=0 docker build -t money_project-dividend-engine ./services
+              sudo env DOCKER_BUILDKIT=0 docker build -t money_project-webhook-gateway ./services/webhook-gateway
+              sudo env DOCKER_BUILDKIT=0 docker build -t money_project-notification ./services/notification
+              sudo env DOCKER_BUILDKIT=0 docker build -t money_project-news-service ./services/news-service
+            fi
 
             # 실행
-            sudo docker compose up -d
+            sudo docker compose up -d --no-build
 
             # DB 마이그레이션 실행 (idempotent - IF NOT EXISTS 사용)
             echo "=== Running DB Migrations ==="

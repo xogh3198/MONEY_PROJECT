@@ -38,12 +38,4 @@ public class NewsController {
     public ResponseEntity<?> getHotArticles(@RequestParam(required = false) NewsCategory category) {
         return ResponseEntity.ok(newsService.getHotArticles(category));
     }
-
-    @PostMapping("/{id}/vote")
-    public ResponseEntity<Void> vote(
-            @PathVariable UUID id,
-            @RequestParam String type) { // "positive" or "negative"
-        newsService.vote(id, type);
-        return ResponseEntity.ok().build();
-    }
 }

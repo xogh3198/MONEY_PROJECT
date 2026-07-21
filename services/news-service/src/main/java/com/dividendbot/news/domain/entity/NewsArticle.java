@@ -53,6 +53,14 @@ public class NewsArticle {
     @Builder.Default
     private int negativeVotes = 0;
 
+    /**
+     * 외부 플랫폼의 실시간 랭킹 신호입니다.
+     * 실제 InvestBoard 조회수와 분리해 사용자 지표가 부풀려지지 않게 합니다.
+     */
+    @Column(name = "external_trend_score")
+    @Builder.Default
+    private int externalTrendScore = 0;
+
     @Column(name = "published_at")
     private LocalDateTime publishedAt;
 
@@ -63,11 +71,16 @@ public class NewsArticle {
     public void incrementViewCount() { this.viewCount++; }
     public void addPositiveVote() { this.positiveVotes++; }
     public void addNegativeVote() { this.negativeVotes++; }
+    public void removePositiveVote() { this.positiveVotes = Math.max(0, this.positiveVotes - 1); }
+    public void removeNegativeVote() { this.negativeVotes = Math.max(0, this.negativeVotes - 1); }
     public void incrementCommentCount() { this.commentCount++; }
 
-    /**
-     * 네이버 랭킹 뉴스에 등장한 기사에 인기도 부스트 추가
-     * viewCount에 랭킹 점수를 더하여 인기뉴스 알고리즘에 반영
-     */
-    public void addRankingBoost(int score) { this.viewCount += score; }
+    public void updateExternalTrendScore(int score) {
+        this.externalTrendScore = Math.max(0, score);
+    }
+
+    public void migrateLegacyRankingViews() {
+        this.externalTrendScore = Math.max(this.externalTrendScore, Math.min(this.viewCount, 200));
+        this.viewCount = 0;
+    }
 }

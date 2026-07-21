@@ -96,6 +96,7 @@ jobs:
               infra/db/V001__portfolios_add_dividend_fields.sql
               infra/db/V2__create_notification_preferences.sql
               infra/db/V3__create_forum_posts_and_votes.sql
+              infra/db/V4__create_news_article_votes_and_trend_score.sql
             )
 
             for sql_file in "${migration_files[@]}"; do

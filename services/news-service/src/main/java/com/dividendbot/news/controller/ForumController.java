@@ -1,8 +1,10 @@
 package com.dividendbot.news.controller;
 
 import com.dividendbot.news.domain.entity.ForumComment;
+import com.dividendbot.news.domain.entity.NewsArticle;
 import com.dividendbot.news.domain.repository.ForumCommentRepository;
 import com.dividendbot.news.domain.repository.NewsArticleRepository;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -30,28 +32,35 @@ public class ForumController {
     }
 
     @PostMapping("/comments")
-    public ResponseEntity<ForumComment> addComment(@RequestBody Map<String, String> body) {
+    public ResponseEntity<ForumComment> addComment(
+            @RequestBody Map<String, String> body,
+            HttpServletRequest request) {
         UUID articleId = UUID.fromString(body.get("articleId"));
-        UUID userId = UUID.fromString(body.getOrDefault("userId", UUID.randomUUID().toString()));
-        String username = body.getOrDefault("username", "익명");
+        UUID userId = (UUID) request.getAttribute("userId");
+        String username = (String) request.getAttribute("nickname");
         String content = body.get("content");
 
+        if (userId == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
         if (content == null || content.isBlank()) {
             return ResponseEntity.badRequest().build();
+        }
+
+        NewsArticle article = newsRepository.findById(articleId).orElse(null);
+        if (article == null) {
+            return ResponseEntity.notFound().build();
         }
 
         ForumComment comment = ForumComment.builder()
                 .articleId(articleId)
                 .userId(userId)
-                .username(username)
-                .content(content)
+                .username(username == null || username.isBlank() ? "회원" : username)
+                .content(content.trim())
                 .build();
 
-        // 뉴스 기사 댓글 수 증가
-        newsRepository.findById(articleId).ifPresent(article -> {
-            article.incrementCommentCount();
-            newsRepository.save(article);
-        });
+        article.incrementCommentCount();
+        newsRepository.save(article);
 
         return ResponseEntity.status(HttpStatus.CREATED).body(commentRepository.save(comment));
     }

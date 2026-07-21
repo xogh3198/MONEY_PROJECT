@@ -59,7 +59,7 @@ public class NewsArticle {
      */
     @Column(name = "external_trend_score")
     @Builder.Default
-    private int externalTrendScore = 0;
+    private Integer externalTrendScore = 0;
 
     @Column(name = "published_at")
     private LocalDateTime publishedAt;
@@ -80,7 +80,8 @@ public class NewsArticle {
     }
 
     public void migrateLegacyRankingViews() {
-        this.externalTrendScore = Math.max(this.externalTrendScore, Math.min(this.viewCount, 200));
+        int currentTrendScore = this.externalTrendScore == null ? 0 : this.externalTrendScore;
+        this.externalTrendScore = Math.max(currentTrendScore, Math.min(this.viewCount, 200));
         this.viewCount = 0;
     }
 }

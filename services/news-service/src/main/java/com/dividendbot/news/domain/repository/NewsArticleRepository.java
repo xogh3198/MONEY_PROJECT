@@ -20,18 +20,18 @@ public interface NewsArticleRepository extends JpaRepository<NewsArticle, UUID> 
     Optional<NewsArticle> findFirstByTitle(String title);
 
     @Query("SELECT a FROM NewsArticle a WHERE a.publishedAt >= :since " +
-            "ORDER BY (a.viewCount + a.positiveVotes * 5 + a.negativeVotes * 2 + a.commentCount * 6 + a.externalTrendScore) DESC, a.publishedAt DESC")
+            "ORDER BY (a.viewCount + a.positiveVotes * 5 + a.negativeVotes * 2 + a.commentCount * 6 + COALESCE(a.externalTrendScore, 0)) DESC, a.publishedAt DESC")
     List<NewsArticle> findHotArticlesSince(LocalDateTime since, Pageable pageable);
 
     @Query("SELECT a FROM NewsArticle a WHERE a.category = :category AND a.publishedAt >= :since " +
-            "ORDER BY (a.viewCount + a.positiveVotes * 5 + a.negativeVotes * 2 + a.commentCount * 6 + a.externalTrendScore) DESC, a.publishedAt DESC")
+            "ORDER BY (a.viewCount + a.positiveVotes * 5 + a.negativeVotes * 2 + a.commentCount * 6 + COALESCE(a.externalTrendScore, 0)) DESC, a.publishedAt DESC")
     List<NewsArticle> findHotArticlesByCategorySince(NewsCategory category, LocalDateTime since, Pageable pageable);
 
     @Query("SELECT a FROM NewsArticle a " +
-            "ORDER BY (a.viewCount + a.positiveVotes * 5 + a.negativeVotes * 2 + a.commentCount * 6 + a.externalTrendScore) DESC, a.publishedAt DESC")
+            "ORDER BY (a.viewCount + a.positiveVotes * 5 + a.negativeVotes * 2 + a.commentCount * 6 + COALESCE(a.externalTrendScore, 0)) DESC, a.publishedAt DESC")
     List<NewsArticle> findPopularArticles(Pageable pageable);
 
     @Query("SELECT a FROM NewsArticle a WHERE a.category = :category " +
-            "ORDER BY (a.viewCount + a.positiveVotes * 5 + a.negativeVotes * 2 + a.commentCount * 6 + a.externalTrendScore) DESC, a.publishedAt DESC")
+            "ORDER BY (a.viewCount + a.positiveVotes * 5 + a.negativeVotes * 2 + a.commentCount * 6 + COALESCE(a.externalTrendScore, 0)) DESC, a.publishedAt DESC")
     List<NewsArticle> findPopularArticlesByCategory(NewsCategory category, Pageable pageable);
 }

@@ -56,7 +56,8 @@ public class DataSeeder implements CommandLineRunner {
                 continue;
             }
 
-            if (article.getExternalTrendScore() == 0 && article.getViewCount() > 0 && !hasEngagement) {
+            Integer trendScore = article.getExternalTrendScore();
+            if ((trendScore == null || trendScore == 0) && article.getViewCount() > 0 && !hasEngagement) {
                 article.migrateLegacyRankingViews();
                 newsRepository.save(article);
                 migrated++;

@@ -1,6 +1,14 @@
 ALTER TABLE news_articles
     ADD COLUMN IF NOT EXISTS external_trend_score INTEGER NOT NULL DEFAULT 0;
 
+UPDATE news_articles
+SET external_trend_score = 0
+WHERE external_trend_score IS NULL;
+
+ALTER TABLE news_articles
+    ALTER COLUMN external_trend_score SET DEFAULT 0,
+    ALTER COLUMN external_trend_score SET NOT NULL;
+
 CREATE TABLE IF NOT EXISTS news_article_votes (
     id UUID PRIMARY KEY,
     article_id UUID NOT NULL,

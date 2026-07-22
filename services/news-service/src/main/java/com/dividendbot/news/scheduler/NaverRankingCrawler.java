@@ -11,6 +11,7 @@ import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,6 +28,7 @@ import java.util.*;
  * 실행: 30분 간격
  */
 @Component
+@ConditionalOnProperty(name = "naver.ranking.enabled", havingValue = "true")
 @RequiredArgsConstructor
 @Slf4j
 public class NaverRankingCrawler {

@@ -18,6 +18,21 @@ naver:
   api:
     client-id: ${NAVER_CLIENT_ID:}
     client-secret: ${NAVER_CLIENT_SECRET:}
+  # news.naver.com은 robots.txt에서 전체 자동 수집을 차단하므로 기본 비활성화합니다.
+  ranking:
+    enabled: ${NAVER_RANKING_ENABLED:false}
+  datalab:
+    enabled: ${NAVER_DATALAB_ENABLED:true}
+
+external:
+  metrics:
+    enabled: ${EXTERNAL_METRICS_ENABLED:true}
+    interval-ms: ${EXTERNAL_METRICS_INTERVAL_MS:3600000}
+    initial-delay-ms: ${EXTERNAL_METRICS_INITIAL_DELAY_MS:120000}
+    refresh-hours: ${EXTERNAL_METRICS_REFRESH_HOURS:6}
+    batch-size: ${EXTERNAL_METRICS_BATCH_SIZE:12}
+  youtube:
+    api-key: ${YOUTUBE_API_KEY:}
 
 springdoc:
   api-docs:

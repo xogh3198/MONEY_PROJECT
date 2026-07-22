@@ -30,8 +30,11 @@ public class NewsController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<NewsArticle> getArticle(@PathVariable UUID id) {
-        return ResponseEntity.ok(newsService.getById(id));
+    public ResponseEntity<NewsArticle> getArticle(
+            @PathVariable UUID id,
+            @RequestParam(defaultValue = "true") boolean trackView
+    ) {
+        return ResponseEntity.ok(trackView ? newsService.getById(id) : newsService.peekById(id));
     }
 
     @GetMapping("/hot")

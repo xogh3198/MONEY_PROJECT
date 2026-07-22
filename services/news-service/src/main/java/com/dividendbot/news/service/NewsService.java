@@ -38,6 +38,11 @@ public class NewsService {
         return repository.save(article);
     }
 
+    public NewsArticle peekById(UUID id) {
+        return repository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("기사를 찾을 수 없습니다: " + id));
+    }
+
     public List<NewsArticle> getHotArticles(NewsCategory category) {
         LocalDateTime since = LocalDateTime.now().minusHours(48);
         org.springframework.data.domain.Pageable top10 = PageRequest.of(0, 10);

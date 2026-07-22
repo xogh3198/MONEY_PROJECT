@@ -61,6 +61,47 @@ public class NewsArticle {
     @Builder.Default
     private Integer externalTrendScore = 0;
 
+    /**
+     * 원문 또는 공식 플랫폼 API가 공개한 참여 수치입니다.
+     * InvestBoard 내부 조회/댓글/투표와 절대 합산하지 않습니다.
+     */
+    @Column(name = "external_view_count")
+    private Long externalViewCount;
+
+    @Column(name = "external_comment_count")
+    private Long externalCommentCount;
+
+    @Column(name = "external_positive_count")
+    private Long externalPositiveCount;
+
+    @Column(name = "external_negative_count")
+    private Long externalNegativeCount;
+
+    @Column(name = "external_engagement_score", nullable = false)
+    @Builder.Default
+    private Integer externalEngagementScore = 0;
+
+    @Column(name = "external_metric_provider", length = 40)
+    private String externalMetricProvider;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "external_metric_status", nullable = false, length = 30)
+    @Builder.Default
+    private ExternalMetricStatus externalMetricStatus = ExternalMetricStatus.PENDING;
+
+    @Column(name = "external_metrics_updated_at")
+    private LocalDateTime externalMetricsUpdatedAt;
+
+    /** 네이버 DataLab 공식 API가 제공하는 기사 카테고리 키워드 그룹의 0~100 상대 검색 관심도입니다. */
+    @Column(name = "external_search_interest")
+    private Integer externalSearchInterest;
+
+    @Column(name = "external_search_interest_source", length = 40)
+    private String externalSearchInterestSource;
+
+    @Column(name = "external_search_interest_updated_at")
+    private LocalDateTime externalSearchInterestUpdatedAt;
+
     @Column(name = "published_at")
     private LocalDateTime publishedAt;
 
@@ -79,9 +120,39 @@ public class NewsArticle {
         this.externalTrendScore = Math.max(0, score);
     }
 
+    public void updateExternalMetrics(
+            Long views,
+            Long comments,
+            Long positive,
+            Long negative,
+            int engagementScore,
+            String provider,
+            ExternalMetricStatus status,
+            LocalDateTime updatedAt
+    ) {
+        this.externalViewCount = sanitizeCount(views);
+        this.externalCommentCount = sanitizeCount(comments);
+        this.externalPositiveCount = sanitizeCount(positive);
+        this.externalNegativeCount = sanitizeCount(negative);
+        this.externalEngagementScore = Math.max(0, engagementScore);
+        this.externalMetricProvider = provider;
+        this.externalMetricStatus = status == null ? ExternalMetricStatus.FETCH_ERROR : status;
+        this.externalMetricsUpdatedAt = updatedAt;
+    }
+
+    public void updateExternalSearchInterest(int score, String source, LocalDateTime updatedAt) {
+        this.externalSearchInterest = Math.max(0, Math.min(100, score));
+        this.externalSearchInterestSource = source;
+        this.externalSearchInterestUpdatedAt = updatedAt;
+    }
+
     public void migrateLegacyRankingViews() {
         int currentTrendScore = this.externalTrendScore == null ? 0 : this.externalTrendScore;
         this.externalTrendScore = Math.max(currentTrendScore, Math.min(this.viewCount, 200));
         this.viewCount = 0;
+    }
+
+    private Long sanitizeCount(Long value) {
+        return value == null ? null : Math.max(0L, value);
     }
 }

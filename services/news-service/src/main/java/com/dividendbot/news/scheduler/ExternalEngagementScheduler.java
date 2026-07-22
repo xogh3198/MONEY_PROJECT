@@ -31,7 +31,7 @@ public class ExternalEngagementScheduler {
     private int batchSize;
 
     @Scheduled(
-            fixedDelayString = "${external.metrics.interval-ms:3600000}",
+            fixedDelayString = "${external.metrics.interval-ms:900000}",
             initialDelayString = "${external.metrics.initial-delay-ms:120000}"
     )
     public void refreshExternalMetrics() {

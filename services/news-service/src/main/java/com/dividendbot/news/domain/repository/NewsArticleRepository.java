@@ -21,7 +21,9 @@ public interface NewsArticleRepository extends JpaRepository<NewsArticle, UUID> 
 
     @Query("SELECT a FROM NewsArticle a WHERE a.publishedAt >= :since " +
             "AND (a.externalMetricsUpdatedAt IS NULL OR a.externalMetricsUpdatedAt < :staleBefore) " +
-            "ORDER BY a.publishedAt DESC")
+            "ORDER BY (a.viewCount + a.positiveVotes * 5 + a.negativeVotes * 2 + a.commentCount * 6 " +
+            "+ COALESCE(a.externalTrendScore, 0) + COALESCE(a.externalSearchInterest, 0)) DESC, " +
+            "a.publishedAt DESC")
     List<NewsArticle> findExternalMetricRefreshCandidates(
             LocalDateTime since,
             LocalDateTime staleBefore,

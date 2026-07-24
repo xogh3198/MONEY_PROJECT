@@ -2,6 +2,7 @@ package com.dividendbot.news.domain.repository;
 
 import com.dividendbot.news.domain.entity.NewsArticle;
 import com.dividendbot.news.domain.entity.NewsCategory;
+import com.dividendbot.news.domain.entity.ExternalMetricStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -18,6 +19,24 @@ public interface NewsArticleRepository extends JpaRepository<NewsArticle, UUID> 
     boolean existsBySourceUrl(String sourceUrl);
     Optional<NewsArticle> findBySourceUrl(String sourceUrl);
     Optional<NewsArticle> findFirstByTitle(String title);
+    long countByViewCountGreaterThan(int viewCount);
+    long countByCommentCountGreaterThan(int commentCount);
+    long countByExternalSearchInterestIsNotNull();
+    long countByExternalMetricStatus(ExternalMetricStatus status);
+
+    @Query("SELECT COUNT(a) FROM NewsArticle a WHERE a.positiveVotes > 0 OR a.negativeVotes > 0")
+    long countArticlesWithInternalVotes();
+
+    @Query("SELECT COUNT(a) FROM NewsArticle a WHERE a.externalViewCount IS NOT NULL " +
+            "OR a.externalCommentCount IS NOT NULL OR a.externalPositiveCount IS NOT NULL " +
+            "OR a.externalNegativeCount IS NOT NULL")
+    long countArticlesWithExternalValues();
+
+    @Query("SELECT MAX(a.externalMetricsUpdatedAt) FROM NewsArticle a")
+    LocalDateTime findLatestExternalMetricsUpdatedAt();
+
+    @Query("SELECT MAX(a.externalSearchInterestUpdatedAt) FROM NewsArticle a")
+    LocalDateTime findLatestSearchInterestUpdatedAt();
 
     @Query("SELECT a FROM NewsArticle a WHERE a.publishedAt >= :since " +
             "AND (a.externalMetricsUpdatedAt IS NULL OR a.externalMetricsUpdatedAt < :staleBefore) " +

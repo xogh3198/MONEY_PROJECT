@@ -47,13 +47,25 @@ public class NewsService {
         LocalDateTime since = LocalDateTime.now().minusHours(48);
         org.springframework.data.domain.Pageable top10 = PageRequest.of(0, 10);
         if (category != null) {
-            List<NewsArticle> result = repository.findHotArticlesByCategorySince(category, since, top10);
+            List<NewsArticle> result = repository.findArticleMeasuredHotArticlesByCategorySince(
+                    category,
+                    since,
+                    top10
+            );
+            if (!result.isEmpty()) {
+                return result;
+            }
+            result = repository.findHotArticlesByCategorySince(category, since, top10);
             if (result.isEmpty()) {
                 return repository.findPopularArticlesByCategory(category, top10);
             }
             return result;
         }
-        List<NewsArticle> result = repository.findHotArticlesSince(since, top10);
+        List<NewsArticle> result = repository.findArticleMeasuredHotArticlesSince(since, top10);
+        if (!result.isEmpty()) {
+            return result;
+        }
+        result = repository.findHotArticlesSince(since, top10);
         if (result.isEmpty()) {
             return repository.findPopularArticles(top10);
         }

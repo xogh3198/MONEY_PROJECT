@@ -1,6 +1,7 @@
 package com.dividendbot.news.scheduler;
 
 import com.dividendbot.news.domain.entity.NewsCategory;
+import com.dividendbot.news.domain.entity.NewsArticle;
 import com.dividendbot.news.domain.repository.NewsArticleRepository;
 import com.dividendbot.news.service.CollectorRunStateService;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -9,9 +10,14 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Map;
+import java.time.LocalDateTime;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.any;
 
 class NaverDataLabTrendSchedulerTest {
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -78,5 +84,37 @@ class NaverDataLabTrendSchedulerTest {
         assertThat(keywords)
                 .contains("코스피 국제유가", "코스피", "국제유가", "급등에", "환율")
                 .doesNotContain("속보");
+    }
+
+    @Test
+    void selectsRecentCandidatesEvenlyAcrossCategories() {
+        NewsArticleRepository repository = mock(NewsArticleRepository.class);
+        NaverDataLabTrendScheduler balancedScheduler = new NaverDataLabTrendScheduler(
+                repository,
+                mock(CollectorRunStateService.class)
+        );
+        LocalDateTime since = LocalDateTime.of(2026, 7, 22, 0, 0);
+
+        for (NewsCategory category : NewsCategory.values()) {
+            when(repository.findByCategoryAndPublishedAtAfterOrderByPublishedAtDesc(
+                    eq(category),
+                    eq(since),
+                    any()
+            )).thenReturn(List.of(NewsArticle.builder().category(category).build()));
+        }
+
+        List<NewsArticle> candidates = balancedScheduler.findBalancedArticleCandidates(since);
+
+        assertThat(candidates)
+                .hasSize(NewsCategory.values().length)
+                .extracting(NewsArticle::getCategory)
+                .containsExactly(NewsCategory.values());
+        for (NewsCategory category : NewsCategory.values()) {
+            verify(repository).findByCategoryAndPublishedAtAfterOrderByPublishedAtDesc(
+                    eq(category),
+                    eq(since),
+                    any()
+            );
+        }
     }
 }

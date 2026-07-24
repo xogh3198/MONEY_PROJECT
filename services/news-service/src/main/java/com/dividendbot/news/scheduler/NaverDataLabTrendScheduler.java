@@ -38,7 +38,7 @@ public class NaverDataLabTrendScheduler {
     private static final String ARTICLE_GROUP_PREFIX = "ARTICLE_";
     private static final String REFERENCE_GROUP = "REFERENCE";
     private static final int ARTICLE_BATCH_SIZE = 4;
-    private static final int ARTICLE_CANDIDATE_LIMIT = 40;
+    private static final int ARTICLE_CANDIDATES_PER_CATEGORY = 8;
     private static final int REFERENCE_SCORE = 50;
     private static final Pattern TITLE_TOKEN = Pattern.compile("[가-힣A-Za-z0-9]+");
     private static final Set<String> TITLE_STOP_WORDS = Set.of(
@@ -106,10 +106,7 @@ public class NaverDataLabTrendScheduler {
             }
             newsRepository.saveAll(recent);
 
-            List<NewsArticle> candidates = newsRepository.findByPublishedAtAfterOrderByPublishedAtDesc(
-                    updatedAt.minusDays(2),
-                    PageRequest.of(0, ARTICLE_CANDIDATE_LIMIT)
-            );
+            List<NewsArticle> candidates = findBalancedArticleCandidates(updatedAt.minusDays(2));
             int articleSpecificCount = updateArticleSpecificScores(candidates, endDate, updatedAt);
             recordSafely(() -> runStateService.markSuccess(
                     CollectorRunStateService.NAVER_DATALAB,
@@ -143,6 +140,19 @@ public class NaverDataLabTrendScheduler {
             ));
             log.warn("네이버 DataLab 검색 관심도 갱신 실패. API 권한과 호출 한도를 확인하세요: {}", e.getMessage());
         }
+    }
+
+    List<NewsArticle> findBalancedArticleCandidates(LocalDateTime since) {
+        List<NewsArticle> candidates = new ArrayList<>();
+        PageRequest perCategory = PageRequest.of(0, ARTICLE_CANDIDATES_PER_CATEGORY);
+        for (NewsCategory category : NewsCategory.values()) {
+            candidates.addAll(newsRepository.findByCategoryAndPublishedAtAfterOrderByPublishedAtDesc(
+                    category,
+                    since,
+                    perCategory
+            ));
+        }
+        return candidates;
     }
 
     private int updateArticleSpecificScores(

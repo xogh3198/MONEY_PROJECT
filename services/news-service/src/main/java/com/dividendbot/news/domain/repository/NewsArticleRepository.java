@@ -51,6 +51,29 @@ public interface NewsArticleRepository extends JpaRepository<NewsArticle, UUID> 
 
     List<NewsArticle> findByPublishedAtAfter(LocalDateTime since);
     List<NewsArticle> findByPublishedAtAfterOrderByPublishedAtDesc(LocalDateTime since, Pageable pageable);
+    List<NewsArticle> findByCategoryAndPublishedAtAfterOrderByPublishedAtDesc(
+            NewsCategory category,
+            LocalDateTime since,
+            Pageable pageable
+    );
+
+    @Query("SELECT a FROM NewsArticle a WHERE a.publishedAt >= :since " +
+            "AND a.externalSearchInterestSource = 'NAVER_DATALAB_ARTICLE_KEYWORDS' " +
+            "ORDER BY (a.viewCount + a.positiveVotes * 5 + a.negativeVotes * 2 + a.commentCount * 6 " +
+            "+ COALESCE(a.externalTrendScore, 0) + COALESCE(a.externalEngagementScore, 0) " +
+            "+ COALESCE(a.externalSearchInterest, 0) * 100) DESC, a.publishedAt DESC")
+    List<NewsArticle> findArticleMeasuredHotArticlesSince(LocalDateTime since, Pageable pageable);
+
+    @Query("SELECT a FROM NewsArticle a WHERE a.category = :category AND a.publishedAt >= :since " +
+            "AND a.externalSearchInterestSource = 'NAVER_DATALAB_ARTICLE_KEYWORDS' " +
+            "ORDER BY (a.viewCount + a.positiveVotes * 5 + a.negativeVotes * 2 + a.commentCount * 6 " +
+            "+ COALESCE(a.externalTrendScore, 0) + COALESCE(a.externalEngagementScore, 0) " +
+            "+ COALESCE(a.externalSearchInterest, 0) * 100) DESC, a.publishedAt DESC")
+    List<NewsArticle> findArticleMeasuredHotArticlesByCategorySince(
+            NewsCategory category,
+            LocalDateTime since,
+            Pageable pageable
+    );
 
     @Query("SELECT a FROM NewsArticle a WHERE a.publishedAt >= :since " +
             "ORDER BY (a.viewCount + a.positiveVotes * 5 + a.negativeVotes * 2 + a.commentCount * 6 " +

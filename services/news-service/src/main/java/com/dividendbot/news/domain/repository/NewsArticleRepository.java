@@ -50,6 +50,7 @@ public interface NewsArticleRepository extends JpaRepository<NewsArticle, UUID> 
     );
 
     List<NewsArticle> findByPublishedAtAfter(LocalDateTime since);
+    List<NewsArticle> findByPublishedAtAfterOrderByPublishedAtDesc(LocalDateTime since, Pageable pageable);
 
     @Query("SELECT a FROM NewsArticle a WHERE a.publishedAt >= :since " +
             "ORDER BY (a.viewCount + a.positiveVotes * 5 + a.negativeVotes * 2 + a.commentCount * 6 " +

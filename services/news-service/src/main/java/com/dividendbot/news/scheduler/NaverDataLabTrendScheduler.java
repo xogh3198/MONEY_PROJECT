@@ -9,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -18,9 +19,15 @@ import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.ArrayList;
 import java.util.EnumMap;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Component
 @ConditionalOnProperty(name = "naver.datalab.enabled", havingValue = "true", matchIfMissing = true)
@@ -28,6 +35,18 @@ import java.util.Map;
 @Slf4j
 public class NaverDataLabTrendScheduler {
     private static final ZoneId SEOUL = ZoneId.of("Asia/Seoul");
+    private static final String ARTICLE_GROUP_PREFIX = "ARTICLE_";
+    private static final String REFERENCE_GROUP = "REFERENCE";
+    private static final int ARTICLE_BATCH_SIZE = 4;
+    private static final int ARTICLE_CANDIDATE_LIMIT = 40;
+    private static final int REFERENCE_SCORE = 50;
+    private static final Pattern TITLE_TOKEN = Pattern.compile("[가-힣A-Za-z0-9]+");
+    private static final Set<String> TITLE_STOP_WORDS = Set.of(
+            "종합", "속보", "단독", "연합뉴스", "기자", "뉴스", "관련", "대한",
+            "오늘", "올해", "지난", "이번", "전망", "발표", "가능성", "가운데"
+    );
+    private static final Map<String, Object> REFERENCE_KEYWORD_GROUP =
+            Map.of("groupName", REFERENCE_GROUP, "keywords", List.of("코스피"));
     private static final List<Map<String, Object>> KEYWORD_GROUPS = List.of(
             group(NewsCategory.DOMESTIC, "코스피", "코스닥", "국내증시"),
             group(NewsCategory.OVERSEAS, "나스닥", "S&P500", "미국증시"),
@@ -45,7 +64,7 @@ public class NaverDataLabTrendScheduler {
     @Value("${naver.api.client-secret:}")
     private String clientSecret;
 
-    @Scheduled(fixedDelay = 21_600_000, initialDelay = 240_000)
+    @Scheduled(fixedDelay = 21_600_000, initialDelay = 60_000)
     public void refreshSearchInterest() {
         long startedAt = System.nanoTime();
         boolean configured = hasText(clientId) && hasText(clientSecret);
@@ -67,24 +86,7 @@ public class NaverDataLabTrendScheduler {
 
         try {
             LocalDate endDate = LocalDate.now(SEOUL).minusDays(1);
-            Map<String, Object> request = Map.of(
-                    "startDate", endDate.minusDays(29).toString(),
-                    "endDate", endDate.toString(),
-                    "timeUnit", "date",
-                    "keywordGroups", KEYWORD_GROUPS
-            );
-
-            JsonNode response = WebClient.builder()
-                    .baseUrl("https://openapi.naver.com")
-                    .defaultHeader("X-Naver-Client-Id", clientId)
-                    .defaultHeader("X-Naver-Client-Secret", clientSecret)
-                    .build()
-                    .post()
-                    .uri("/v1/datalab/search")
-                    .bodyValue(request)
-                    .retrieve()
-                    .bodyToMono(JsonNode.class)
-                    .block(Duration.ofSeconds(10));
+            JsonNode response = requestDataLab(endDate, KEYWORD_GROUPS);
 
             Map<NewsCategory, Integer> scores = readLatestScores(response);
             if (scores.isEmpty()) {
@@ -103,14 +105,27 @@ public class NaverDataLabTrendScheduler {
                 if (score != null) article.updateExternalSearchInterest(score, "NAVER_DATALAB_CATEGORY", updatedAt);
             }
             newsRepository.saveAll(recent);
+
+            List<NewsArticle> candidates = newsRepository.findByPublishedAtAfterOrderByPublishedAtDesc(
+                    updatedAt.minusDays(2),
+                    PageRequest.of(0, ARTICLE_CANDIDATE_LIMIT)
+            );
+            int articleSpecificCount = updateArticleSpecificScores(candidates, endDate, updatedAt);
             recordSafely(() -> runStateService.markSuccess(
                     CollectorRunStateService.NAVER_DATALAB,
                     recent.size(),
-                    scores.size(),
+                    articleSpecificCount,
                     elapsedMillis(startedAt),
-                    "카테고리 " + scores.size() + "개 점수를 최근 기사 " + recent.size() + "건에 반영했습니다."
+                    "분야 " + scores.size() + "개 fallback과 기사별 점수 "
+                            + articleSpecificCount + "/" + candidates.size() + "건을 반영했습니다."
             ));
-            log.info("네이버 DataLab 공식 분야 검색 관심도 갱신: 카테고리 {}개, 기사 {}건", scores.size(), recent.size());
+            log.info(
+                    "네이버 DataLab 검색 관심도 갱신: 분야 {}개, 기사별 {}/{}건, 전체 fallback {}건",
+                    scores.size(),
+                    articleSpecificCount,
+                    candidates.size(),
+                    recent.size()
+            );
         } catch (WebClientResponseException e) {
             String message = "NAVER DataLab HTTP " + e.getStatusCode().value()
                     + ". 개발자센터의 DataLab 권한과 호출 한도를 확인하세요.";
@@ -130,6 +145,76 @@ public class NaverDataLabTrendScheduler {
         }
     }
 
+    private int updateArticleSpecificScores(
+            List<NewsArticle> candidates,
+            LocalDate endDate,
+            LocalDateTime updatedAt
+    ) {
+        int updated = 0;
+        for (int start = 0; start < candidates.size(); start += ARTICLE_BATCH_SIZE) {
+            List<NewsArticle> batch = candidates.subList(
+                    start,
+                    Math.min(start + ARTICLE_BATCH_SIZE, candidates.size())
+            );
+            List<Map<String, Object>> groups = new ArrayList<>();
+            groups.add(REFERENCE_KEYWORD_GROUP);
+            Map<String, NewsArticle> articlesByGroup = new LinkedHashMap<>();
+
+            for (int index = 0; index < batch.size(); index++) {
+                NewsArticle article = batch.get(index);
+                List<String> keywords = extractTitleKeywords(article.getTitle());
+                if (keywords.isEmpty()) continue;
+                String groupName = ARTICLE_GROUP_PREFIX + index;
+                groups.add(Map.of("groupName", groupName, "keywords", keywords));
+                articlesByGroup.put(groupName, article);
+            }
+            if (articlesByGroup.isEmpty()) continue;
+
+            try {
+                Map<String, Integer> articleScores = readArticleScores(requestDataLab(endDate, groups));
+                for (Map.Entry<String, Integer> entry : articleScores.entrySet()) {
+                    NewsArticle article = articlesByGroup.get(entry.getKey());
+                    if (article == null) continue;
+                    article.updateExternalSearchInterest(
+                            entry.getValue(),
+                            "NAVER_DATALAB_ARTICLE_KEYWORDS",
+                            updatedAt
+                    );
+                    updated++;
+                }
+            } catch (Exception batchError) {
+                log.warn(
+                        "DataLab 기사별 관심도 배치 건너뜀({}~{}): {}",
+                        start,
+                        start + batch.size() - 1,
+                        safeMessage(batchError)
+                );
+            }
+        }
+        newsRepository.saveAll(candidates);
+        return updated;
+    }
+
+    private JsonNode requestDataLab(LocalDate endDate, List<Map<String, Object>> keywordGroups) {
+        Map<String, Object> request = Map.of(
+                "startDate", endDate.minusDays(29).toString(),
+                "endDate", endDate.toString(),
+                "timeUnit", "date",
+                "keywordGroups", keywordGroups
+        );
+        return WebClient.builder()
+                .baseUrl("https://openapi.naver.com")
+                .defaultHeader("X-Naver-Client-Id", clientId)
+                .defaultHeader("X-Naver-Client-Secret", clientSecret)
+                .build()
+                .post()
+                .uri("/v1/datalab/search")
+                .bodyValue(request)
+                .retrieve()
+                .bodyToMono(JsonNode.class)
+                .block(Duration.ofSeconds(10));
+    }
+
     Map<NewsCategory, Integer> readLatestScores(JsonNode response) {
         Map<NewsCategory, Integer> scores = new EnumMap<>(NewsCategory.class);
         if (response == null || !response.path("results").isArray()) return scores;
@@ -146,6 +231,58 @@ public class NaverDataLabTrendScheduler {
             }
         }
         return scores;
+    }
+
+    Map<String, Integer> readArticleScores(JsonNode response) {
+        Map<String, Integer> scores = new LinkedHashMap<>();
+        if (response == null || !response.path("results").isArray()) return scores;
+
+        Map<String, Double> averages = new LinkedHashMap<>();
+        for (JsonNode result : response.path("results")) {
+            double average = averageRatio(result.path("data"));
+            if (average >= 0) averages.put(result.path("title").asText(), average);
+        }
+        double reference = averages.getOrDefault(REFERENCE_GROUP, -1.0);
+        if (reference <= 0) return scores;
+
+        for (Map.Entry<String, Double> entry : averages.entrySet()) {
+            if (!entry.getKey().startsWith(ARTICLE_GROUP_PREFIX)) continue;
+            int score = (int) Math.round(entry.getValue() / reference * REFERENCE_SCORE);
+            scores.put(entry.getKey(), Math.max(0, Math.min(100, score)));
+        }
+        return scores;
+    }
+
+    List<String> extractTitleKeywords(String title) {
+        if (title == null || title.isBlank()) return List.of();
+        LinkedHashSet<String> tokens = new LinkedHashSet<>();
+        Matcher matcher = TITLE_TOKEN.matcher(title);
+        while (matcher.find() && tokens.size() < 4) {
+            String token = matcher.group();
+            if (token.length() < 2 || token.chars().allMatch(Character::isDigit)) continue;
+            if (TITLE_STOP_WORDS.contains(token)) continue;
+            tokens.add(token);
+        }
+        if (tokens.isEmpty()) return List.of();
+
+        List<String> tokenList = new ArrayList<>(tokens);
+        List<String> keywords = new ArrayList<>();
+        if (tokenList.size() >= 2) keywords.add(tokenList.get(0) + " " + tokenList.get(1));
+        keywords.addAll(tokenList);
+        return keywords.stream().limit(5).toList();
+    }
+
+    private double averageRatio(JsonNode data) {
+        if (!data.isArray() || data.isEmpty()) return -1;
+        double sum = 0;
+        int count = 0;
+        for (JsonNode point : data) {
+            double ratio = point.path("ratio").asDouble(-1);
+            if (ratio < 0) continue;
+            sum += ratio;
+            count++;
+        }
+        return count == 0 ? -1 : sum / count;
     }
 
     private static Map<String, Object> group(NewsCategory category, String... keywords) {

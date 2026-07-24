@@ -22,6 +22,7 @@ class NewsArticlePopularityScoreTest {
 
         assertThat(article.getViewCount()).isEqualTo(12);
         assertThat(article.getSearchInterestPopularityScore()).isEqualTo(6_000);
+        assertThat(article.getIntegratedViewCount()).isEqualTo(6_012);
         assertThat(article.getPopularityScore()).isEqualTo(6_059);
     }
 
@@ -34,6 +35,7 @@ class NewsArticlePopularityScoreTest {
                 .build();
 
         assertThat(article.getSearchInterestPopularityScore()).isZero();
+        assertThat(article.getIntegratedViewCount()).isEqualTo(3);
         assertThat(article.getPopularityScore()).isEqualTo(3);
     }
 }

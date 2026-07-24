@@ -7,6 +7,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -49,5 +50,33 @@ class NaverDataLabTrendSchedulerTest {
                 """);
 
         assertThat(scheduler.readLatestScores(response)).isEmpty();
+    }
+
+    @Test
+    void normalizesArticleGroupsAgainstStableReference() throws Exception {
+        JsonNode response = objectMapper.readTree("""
+                {
+                  "results": [
+                    {"title":"REFERENCE","data":[{"ratio":40},{"ratio":60}]},
+                    {"title":"ARTICLE_0","data":[{"ratio":20},{"ratio":30}]},
+                    {"title":"ARTICLE_1","data":[{"ratio":80},{"ratio":100}]}
+                  ]
+                }
+                """);
+
+        assertThat(scheduler.readArticleScores(response))
+                .containsEntry("ARTICLE_0", 25)
+                .containsEntry("ARTICLE_1", 90);
+    }
+
+    @Test
+    void extractsDistinctSearchableKeywordsFromArticleTitle() {
+        List<String> keywords = scheduler.extractTitleKeywords(
+                "[속보] 코스피, 국제유가 급등에 환율 1,466원 돌파"
+        );
+
+        assertThat(keywords)
+                .contains("코스피 국제유가", "코스피", "국제유가", "급등에", "환율")
+                .doesNotContain("속보");
     }
 }

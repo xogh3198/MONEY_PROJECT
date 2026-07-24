@@ -162,14 +162,18 @@ public class NewsArticle {
     }
 
     @Transient
+    public long getIntegratedViewCount() {
+        return Math.max(0, viewCount) + (long) getSearchInterestPopularityScore();
+    }
+
+    @Transient
     public long getPopularityScore() {
-        return Math.max(0, viewCount)
+        return getIntegratedViewCount()
                 + Math.max(0, positiveVotes) * 5L
                 + Math.max(0, negativeVotes) * 2L
                 + Math.max(0, commentCount) * 6L
                 + Math.max(0, externalTrendScore == null ? 0 : externalTrendScore)
-                + Math.max(0, externalEngagementScore == null ? 0 : externalEngagementScore)
-                + getSearchInterestPopularityScore();
+                + Math.max(0, externalEngagementScore == null ? 0 : externalEngagementScore);
     }
 
     public void migrateLegacyRankingViews() {

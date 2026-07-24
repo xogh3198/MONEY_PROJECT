@@ -13,6 +13,13 @@ import java.util.UUID;
 @Builder
 public class NewsArticle {
 
+    /**
+     * DataLab ratio is a 0~100 relative search-interest index, not a view count.
+     * It is expanded only into an internal ranking point so it can influence
+     * popular-news ordering without corrupting the real view counter.
+     */
+    public static final int SEARCH_INTEREST_POPULARITY_MULTIPLIER = 100;
+
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
@@ -144,6 +151,25 @@ public class NewsArticle {
         this.externalSearchInterest = Math.max(0, Math.min(100, score));
         this.externalSearchInterestSource = source;
         this.externalSearchInterestUpdatedAt = updatedAt;
+    }
+
+    @Transient
+    public int getSearchInterestPopularityScore() {
+        int interest = externalSearchInterest == null
+                ? 0
+                : Math.max(0, Math.min(100, externalSearchInterest));
+        return interest * SEARCH_INTEREST_POPULARITY_MULTIPLIER;
+    }
+
+    @Transient
+    public long getPopularityScore() {
+        return Math.max(0, viewCount)
+                + Math.max(0, positiveVotes) * 5L
+                + Math.max(0, negativeVotes) * 2L
+                + Math.max(0, commentCount) * 6L
+                + Math.max(0, externalTrendScore == null ? 0 : externalTrendScore)
+                + Math.max(0, externalEngagementScore == null ? 0 : externalEngagementScore)
+                + getSearchInterestPopularityScore();
     }
 
     public void migrateLegacyRankingViews() {

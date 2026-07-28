@@ -38,6 +38,24 @@ external:
   youtube:
     api-key: ${YOUTUBE_API_KEY:}
 
+video:
+  render:
+    enabled: ${VIDEO_RENDER_ENABLED:false}
+    access-key: ${VIDEO_RENDER_ACCESS_KEY:}
+    storage-path: ${VIDEO_RENDER_STORAGE_PATH:/var/lib/investboard/videos}
+    ffmpeg-path: ${FFMPEG_PATH:ffmpeg}
+    ffprobe-path: ${FFPROBE_PATH:ffprobe}
+    max-scenes: ${VIDEO_RENDER_MAX_SCENES:8}
+  voice:
+    provider: ${VIDEO_VOICE_PROVIDER:POLLY}
+    aws-region: ${AWS_REGION:ap-northeast-2}
+    polly-voice-id: ${POLLY_VOICE_ID:Jihye}
+    polly-engine: ${POLLY_ENGINE:neural}
+    typecast-api-key: ${TYPECAST_API_KEY:}
+    typecast-voice-id: ${TYPECAST_VOICE_ID:}
+  assets:
+    pixabay-api-key: ${PIXABAY_API_KEY:}
+
 springdoc:
   api-docs:
     path: /api-docs

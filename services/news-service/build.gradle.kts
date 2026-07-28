@@ -14,12 +14,14 @@ java {
 repositories { mavenCentral() }
 
 dependencies {
+    implementation(platform("software.amazon.awssdk:bom:2.27.24"))
     implementation("org.springframework.boot:spring-boot-starter-web")
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
     implementation("org.springframework.boot:spring-boot-starter-webflux")
     implementation("org.springframework.boot:spring-boot-starter-actuator")
     implementation("org.springframework.boot:spring-boot-starter-validation")
     implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:2.6.0")
+    implementation("software.amazon.awssdk:polly")
 
     // RSS 파싱
     implementation("com.rometools:rome:2.1.0")
@@ -36,6 +38,7 @@ dependencies {
     annotationProcessor("org.projectlombok:lombok")
     runtimeOnly("org.postgresql:postgresql")
     testImplementation("org.springframework.boot:spring-boot-starter-test")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
 tasks.withType<Test> { useJUnitPlatform() }

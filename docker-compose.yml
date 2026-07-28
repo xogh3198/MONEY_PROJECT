@@ -70,10 +70,23 @@ services:
       EXTERNAL_METRICS_INTERVAL_MS: ${EXTERNAL_METRICS_INTERVAL_MS:-900000}
       EXTERNAL_METRICS_BATCH_SIZE: ${EXTERNAL_METRICS_BATCH_SIZE:-12}
       YOUTUBE_API_KEY: ${YOUTUBE_API_KEY:-}
+      VIDEO_RENDER_ENABLED: ${VIDEO_RENDER_ENABLED:-false}
+      VIDEO_RENDER_ACCESS_KEY: ${VIDEO_RENDER_ACCESS_KEY:-}
+      VIDEO_RENDER_STORAGE_PATH: /var/lib/investboard/videos
+      VIDEO_VOICE_PROVIDER: ${VIDEO_VOICE_PROVIDER:-POLLY}
+      AWS_REGION: ${AWS_REGION:-ap-northeast-2}
+      POLLY_VOICE_ID: ${POLLY_VOICE_ID:-Jihye}
+      POLLY_ENGINE: ${POLLY_ENGINE:-neural}
+      TYPECAST_API_KEY: ${TYPECAST_API_KEY:-}
+      TYPECAST_VOICE_ID: ${TYPECAST_VOICE_ID:-}
+      PIXABAY_API_KEY: ${PIXABAY_API_KEY:-}
       JWT_SECRET: production-secret-key-must-be-at-least-32-characters-long
+    volumes:
+      - video_renders:/var/lib/investboard/videos
     depends_on:
       postgres:
         condition: service_healthy
 
 volumes:
   postgres_data:
+  video_renders:

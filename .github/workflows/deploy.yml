@@ -31,8 +31,9 @@ jobs:
             set -euo pipefail
 
             # Amazon Linux 2023 초기 구성
-            sudo dnf install -y git docker
+            sudo dnf install -y git docker cronie gzip
             sudo systemctl enable --now docker
+            sudo systemctl enable --now crond
             sudo usermod -aG docker "$USER"
 
             if ! sudo docker compose version >/dev/null 2>&1; then
@@ -58,6 +59,20 @@ jobs:
             git fetch origin main
             git reset --hard origin/main
 
+            # 계정이나 Actions 로그에 저장하지 않는 서버 전용 장기 비밀값.
+            # 기존 서버에서는 같은 파일을 재사용하고, 최초 배포에서만 생성한다.
+            DB_PASSWORD_FILE="$HOME/.money-project-db-password"
+            JWT_SECRET_FILE="$HOME/.money-project-jwt-secret"
+            umask 077
+            if [ ! -s "$DB_PASSWORD_FILE" ]; then
+              openssl rand -hex 32 > "$DB_PASSWORD_FILE"
+            fi
+            if [ ! -s "$JWT_SECRET_FILE" ]; then
+              openssl rand -hex 48 > "$JWT_SECRET_FILE"
+            fi
+            DB_PASSWORD="$(tr -d '\r\n' < "$DB_PASSWORD_FILE")"
+            JWT_SECRET="$(tr -d '\r\n' < "$JWT_SECRET_FILE")"
+
             # GitHub Actions 시크릿을 Docker Compose 런타임 환경으로 전달한다.
             # 값은 로그에 출력하지 않고 EC2 사용자만 읽을 수 있는 파일에 보관한다.
             RUNTIME_ENV_FILE="$PWD/.env.runtime"
@@ -75,6 +90,8 @@ jobs:
               "TYPECAST_API_KEY=${TYPECAST_API_KEY:-}" \
               "TYPECAST_VOICE_ID=${TYPECAST_VOICE_ID:-}" \
               "PIXABAY_API_KEY=${PIXABAY_API_KEY:-}" \
+              "DB_PASSWORD=${DB_PASSWORD}" \
+              "JWT_SECRET=${JWT_SECRET}" \
               > "$RUNTIME_ENV_FILE"
 
             # Docker 빌드 캐시 정리 (디스크 확보)
@@ -101,6 +118,11 @@ jobs:
               fi
               sleep 2
             done
+
+            # 신규·기존 데이터베이스 모두 서버 전용 비밀번호와 일치시킨다.
+            printf '%s\n' "ALTER ROLE postgres WITH PASSWORD :'db_password';" | \
+              sudo docker exec -i money_project-postgres-1 \
+                psql -v ON_ERROR_STOP=1 -v db_password="$DB_PASSWORD" -U postgres -d postgres
 
             if [ "$(sudo docker exec money_project-postgres-1 \
               psql -U postgres -d dividend_bot -tAc "SELECT to_regclass('public.news_articles') IS NOT NULL")" = "t" ]; then
@@ -153,6 +175,7 @@ jobs:
               infra/db/V5__add_external_engagement_metrics.sql
               infra/db/V6__create_collector_run_states.sql
               infra/db/V7__create_video_render_jobs.sql
+              infra/db/V8__create_growth_events.sql
             )
 
             for sql_file in "${migration_files[@]}"; do
@@ -161,6 +184,28 @@ jobs:
                 psql -v ON_ERROR_STOP=1 -U postgres -d dividend_bot < "$sql_file"
             done
 
+            # 같은 인스턴스 안의 단기 복구용 일일 백업. 인스턴스 손실 대비 오프사이트
+            # 백업은 별도 S3 권한 승인 뒤 추가한다.
+            BACKUP_DIR="$HOME/money-project-backups"
+            BACKUP_SCRIPT="$HOME/.local/bin/money-project-backup"
+            mkdir -p "$BACKUP_DIR" "$(dirname "$BACKUP_SCRIPT")"
+            printf '%s\n' \
+              '#!/usr/bin/env bash' \
+              'set -euo pipefail' \
+              'BACKUP_DIR="$HOME/money-project-backups"' \
+              'mkdir -p "$BACKUP_DIR"' \
+              'STAMP="$(date +%Y%m%d-%H%M%S)"' \
+              'sudo docker exec money_project-postgres-1 pg_dump -U postgres -d dividend_bot | gzip > "$BACKUP_DIR/dividend_bot-$STAMP.sql.gz"' \
+              'find "$BACKUP_DIR" -type f -name "dividend_bot-*.sql.gz" -mtime +7 -delete' \
+              > "$BACKUP_SCRIPT"
+            chmod 700 "$BACKUP_SCRIPT"
+            (
+              crontab -l 2>/dev/null | grep -v 'money-project-backup' || true
+              echo '17 4 * * * $HOME/.local/bin/money-project-backup >> $HOME/money-project-backups/backup.log 2>&1'
+            ) | crontab -
+            "$BACKUP_SCRIPT"
+
             echo ""
             echo "=== Deploy Complete ==="
             sudo docker compose ps
+            ls -lh "$BACKUP_DIR" | tail -5

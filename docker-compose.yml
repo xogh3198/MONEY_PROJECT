@@ -4,9 +4,9 @@ services:
     environment:
       POSTGRES_DB: dividend_bot
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -22,8 +22,8 @@ services:
     environment:
       DB_URL: jdbc:postgresql://postgres:5432/dividend_bot
       DB_USERNAME: postgres
-      DB_PASSWORD: postgres
-      JWT_SECRET: production-secret-key-must-be-at-least-32-characters-long
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      JWT_SECRET: ${JWT_SECRET:-local-development-secret-key-change-me}
       KIS_APP_KEY: ${KIS_APP_KEY:-}
       KIS_APP_SECRET: ${KIS_APP_SECRET:-}
       KAKAO_CLIENT_ID: ${KAKAO_CLIENT_ID:-}
@@ -48,7 +48,7 @@ services:
     environment:
       DB_URL: jdbc:postgresql://postgres:5432/dividend_bot
       DB_USERNAME: postgres
-      DB_PASSWORD: postgres
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
       KAKAO_SENDER_KEY: ${KAKAO_SENDER_KEY:-}
     depends_on:
       postgres:
@@ -61,7 +61,7 @@ services:
     environment:
       DB_URL: jdbc:postgresql://postgres:5432/dividend_bot
       DB_USERNAME: postgres
-      DB_PASSWORD: postgres
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
       NAVER_CLIENT_ID: ${NAVER_CLIENT_ID:-}
       NAVER_CLIENT_SECRET: ${NAVER_CLIENT_SECRET:-}
       NAVER_RANKING_ENABLED: ${NAVER_RANKING_ENABLED:-false}
@@ -80,7 +80,7 @@ services:
       TYPECAST_API_KEY: ${TYPECAST_API_KEY:-}
       TYPECAST_VOICE_ID: ${TYPECAST_VOICE_ID:-}
       PIXABAY_API_KEY: ${PIXABAY_API_KEY:-}
-      JWT_SECRET: production-secret-key-must-be-at-least-32-characters-long
+      JWT_SECRET: ${JWT_SECRET:-local-development-secret-key-change-me}
     volumes:
       - video_renders:/var/lib/investboard/videos
     depends_on:

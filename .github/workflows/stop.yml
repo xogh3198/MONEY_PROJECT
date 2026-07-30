@@ -1,0 +1,31 @@
+name: Stop Money backend
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/stop.yml
+
+jobs:
+  stop:
+    name: Stop backend containers
+    runs-on: ubuntu-latest
+    steps:
+      - name: Stop Money services on EC2
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          command_timeout: 5m
+          script: |
+            set -euo pipefail
+
+            if [ -d ~/MONEY_PROJECT ]; then
+              cd ~/MONEY_PROJECT
+              sudo docker compose down
+            fi
+
+            sudo systemctl stop docker
+            echo "Money backend containers and Docker are stopped."

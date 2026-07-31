@@ -7,6 +7,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -37,6 +38,21 @@ public interface NewsArticleRepository extends JpaRepository<NewsArticle, UUID> 
 
     @Query("SELECT MAX(a.externalSearchInterestUpdatedAt) FROM NewsArticle a")
     LocalDateTime findLatestSearchInterestUpdatedAt();
+
+    @Query("""
+            SELECT a FROM NewsArticle a
+            WHERE (:category IS NULL OR a.category = :category)
+              AND (
+                LOWER(a.title) LIKE LOWER(CONCAT('%', :query, '%'))
+                OR LOWER(COALESCE(a.summary, '')) LIKE LOWER(CONCAT('%', :query, '%'))
+                OR LOWER(COALESCE(a.sourceName, '')) LIKE LOWER(CONCAT('%', :query, '%'))
+              )
+            """)
+    Page<NewsArticle> search(
+            @Param("query") String query,
+            @Param("category") NewsCategory category,
+            Pageable pageable
+    );
 
     @Query("SELECT a FROM NewsArticle a WHERE a.publishedAt >= :since " +
             "AND (a.externalMetricsUpdatedAt IS NULL OR a.externalMetricsUpdatedAt < :staleBefore) " +

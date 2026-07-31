@@ -29,6 +29,15 @@ public class NewsController {
         return ResponseEntity.ok(articles);
     }
 
+    @GetMapping("/search")
+    public ResponseEntity<Page<NewsArticle>> searchArticles(
+            @RequestParam String query,
+            @RequestParam(required = false) NewsCategory category,
+            Pageable pageable
+    ) {
+        return ResponseEntity.ok(newsService.search(query, category, pageable));
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<NewsArticle> getArticle(
             @PathVariable UUID id,

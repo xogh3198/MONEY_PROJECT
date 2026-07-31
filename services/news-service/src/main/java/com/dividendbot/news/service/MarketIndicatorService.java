@@ -119,9 +119,9 @@ public class MarketIndicatorService {
     }
 
     public List<Map<String, Object>> getAllIndicators() {
-        // 캐시가 비어있으면 기본값 반환
+        // 수집 실패를 임의의 시세로 숨기지 않는다.
         if (cache.isEmpty()) {
-            return getDefaultIndicators();
+            return List.of();
         }
 
         List<Map<String, Object>> result = new ArrayList<>();
@@ -209,16 +209,6 @@ public class MarketIndicatorService {
             log.warn("Yahoo history fetch failed for {}: {}", type, e.getMessage());
             return List.of();
         }
-    }
-
-    private List<Map<String, Object>> getDefaultIndicators() {
-        return List.of(
-                Map.of("type", "KOSPI", "name", "코스피", "value", 2847.52, "changePercent", 0.0, "prediction", "NEUTRAL", "updatedAt", "loading"),
-                Map.of("type", "KOSDAQ", "name", "코스닥", "value", 892.15, "changePercent", 0.0, "prediction", "NEUTRAL", "updatedAt", "loading"),
-                Map.of("type", "USD_KRW", "name", "원/달러", "value", 1342.5, "changePercent", 0.0, "prediction", "NEUTRAL", "updatedAt", "loading"),
-                Map.of("type", "SP500", "name", "S&P 500", "value", 5892.3, "changePercent", 0.0, "prediction", "NEUTRAL", "updatedAt", "loading"),
-                Map.of("type", "BTC", "name", "비트코인", "value", 98452.0, "changePercent", 0.0, "prediction", "NEUTRAL", "updatedAt", "loading")
-        );
     }
 
     private double toDouble(Object value) {

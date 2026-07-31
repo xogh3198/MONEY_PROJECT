@@ -30,6 +30,14 @@ public class NewsService {
         return repository.findByCategory(category, pageable);
     }
 
+    public Page<NewsArticle> search(String query, NewsCategory category, Pageable pageable) {
+        String normalizedQuery = query == null ? "" : query.trim();
+        if (normalizedQuery.length() < 2) {
+            throw new IllegalArgumentException("검색어는 두 글자 이상이어야 합니다.");
+        }
+        return repository.search(normalizedQuery, category, pageable);
+    }
+
     @Transactional
     public NewsArticle getById(UUID id) {
         NewsArticle article = repository.findById(id)

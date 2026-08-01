@@ -11,7 +11,6 @@ import software.amazon.awssdk.services.polly.model.OutputFormat;
 import software.amazon.awssdk.services.polly.model.SpeechMarkType;
 import software.amazon.awssdk.services.polly.model.SynthesizeSpeechRequest;
 import software.amazon.awssdk.services.polly.model.SynthesizeSpeechResponse;
-import software.amazon.awssdk.services.polly.model.VoiceId;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -66,7 +65,9 @@ public class PollyVoiceProvider implements VoiceProvider {
                     .build()) {
                 SynthesizeSpeechRequest base = SynthesizeSpeechRequest.builder()
                         .text(narration)
-                        .voiceId(VoiceId.fromValue(voiceId))
+                        // Pass the configured ID through as a string so newly released Polly
+                        // voices continue to work before the bundled SDK enum is updated.
+                        .voiceId(voiceId)
                         .engine(Engine.fromValue(engine))
                         .languageCode("ko-KR")
                         .build();

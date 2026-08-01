@@ -16,7 +16,9 @@ public record VideoRenderRequest(
         @Size(max = 500) String disclaimer,
         @Size(max = 500) String aiDisclosure,
         VideoVoiceStyle voiceStyle,
-        VideoRenderQuality quality
+        VideoRenderQuality quality,
+        @Size(max = 40) String voiceProvider,
+        @Size(max = 80) String voiceId
 ) {
     public VideoRenderQuality normalizedQuality() {
         return quality == null ? VideoRenderQuality.PREVIEW : quality;

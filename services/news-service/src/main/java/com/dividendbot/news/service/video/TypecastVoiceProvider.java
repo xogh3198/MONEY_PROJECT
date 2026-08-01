@@ -60,19 +60,52 @@ public class TypecastVoiceProvider implements VoiceProvider {
     }
 
     @Override
+    public String displayName() {
+        return "Typecast";
+    }
+
+    @Override
+    public String tier() {
+        return "PREMIUM";
+    }
+
+    @Override
+    public List<Map<String, Object>> availableVoices() {
+        if (!configured()) return List.of();
+        return List.of(
+                Map.of("id", voiceId, "name", "기본 음성", "gender", "UNKNOWN",
+                        "description", "설정된 기본 Typecast 음성",
+                        "styles", List.of("NATURAL", "WHISPER", "SNARKY"))
+        );
+    }
+
+    @Override
     public VoiceTrack synthesize(
             String narration,
             Path outputDirectory,
             String fileStem,
             VideoVoiceStyle voiceStyle
     ) {
+        return synthesize(narration, outputDirectory, fileStem, voiceStyle, null);
+    }
+
+    @Override
+    public VoiceTrack synthesize(
+            String narration,
+            Path outputDirectory,
+            String fileStem,
+            VideoVoiceStyle voiceStyle,
+            String requestedVoiceId
+    ) {
+        String effectiveVoiceId = (requestedVoiceId != null && !requestedVoiceId.isBlank())
+                ? requestedVoiceId.trim() : this.voiceId;
         if (!configured()) throw new IllegalStateException("Typecast API 설정이 비어 있습니다.");
         try {
             Files.createDirectories(outputDirectory);
             Path audioFile = outputDirectory.resolve(fileStem + ".wav");
 
             Map<String, Object> payload = new LinkedHashMap<>();
-            payload.put("voice_id", voiceId);
+            payload.put("voice_id", effectiveVoiceId);
             payload.put("text", narration);
             payload.put("model", "ssfm-v30");
             payload.put("language", "kor");

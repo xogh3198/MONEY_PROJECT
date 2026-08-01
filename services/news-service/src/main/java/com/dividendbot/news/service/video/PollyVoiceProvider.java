@@ -18,6 +18,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
 
 @Component
 public class PollyVoiceProvider implements VoiceProvider {
@@ -53,12 +54,50 @@ public class PollyVoiceProvider implements VoiceProvider {
     }
 
     @Override
+    public String displayName() {
+        return "AWS Polly";
+    }
+
+    @Override
+    public String tier() {
+        return "FREE";
+    }
+
+    @Override
+    public List<Map<String, Object>> availableVoices() {
+        return List.of(
+                Map.of("id", "Jihye", "name", "Jihye", "gender", "FEMALE",
+                        "description", "차분한 뉴스 앵커 톤",
+                        "styles", List.of("NATURAL")),
+                Map.of("id", "Seoyeon", "name", "Seoyeon", "gender", "FEMALE",
+                        "description", "따뜻하고 친근한 톤",
+                        "styles", List.of("NATURAL")),
+                Map.of("id", "Sujin", "name", "Sujin", "gender", "FEMALE",
+                        "description", "밝고 명랑한 톤",
+                        "styles", List.of("NATURAL"))
+        );
+    }
+
+    @Override
     public VoiceTrack synthesize(
             String narration,
             Path outputDirectory,
             String fileStem,
             VideoVoiceStyle voiceStyle
     ) {
+        return synthesize(narration, outputDirectory, fileStem, voiceStyle, null);
+    }
+
+    @Override
+    public VoiceTrack synthesize(
+            String narration,
+            Path outputDirectory,
+            String fileStem,
+            VideoVoiceStyle voiceStyle,
+            String requestedVoiceId
+    ) {
+        String effectiveVoiceId = (requestedVoiceId != null && !requestedVoiceId.isBlank())
+                ? requestedVoiceId.trim() : this.voiceId;
         if (!configured()) throw new IllegalStateException("Amazon Polly 설정이 비어 있습니다.");
         try {
             Files.createDirectories(outputDirectory);
@@ -71,9 +110,7 @@ public class PollyVoiceProvider implements VoiceProvider {
                     .build()) {
                 SynthesizeSpeechRequest base = SynthesizeSpeechRequest.builder()
                         .text(narration)
-                        // Pass the configured ID through as a string so newly released Polly
-                        // voices continue to work before the bundled SDK enum is updated.
-                        .voiceId(voiceId)
+                        .voiceId(effectiveVoiceId)
                         .engine(Engine.fromValue(engine))
                         .languageCode("ko-KR")
                         .build();

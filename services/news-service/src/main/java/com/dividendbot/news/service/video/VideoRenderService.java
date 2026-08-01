@@ -15,6 +15,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.UUID;
+import com.dividendbot.news.domain.entity.VideoVoiceStyle;
 
 @Service
 public class VideoRenderService {
@@ -90,19 +91,31 @@ public class VideoRenderService {
     }
 
     public Map<String, Object> capabilities() {
-        return Map.of(
-                "selectedVoiceProvider", voiceProviderRouter.selectedName(),
-                "voiceConfigured", voiceProviderRouter.selectedConfigured(),
-                "availableVoiceProviders", voiceProviderRouter.availableProviders(),
-                "supportedVoiceStyles", voiceProviderRouter.supportedStyles(),
-                "pixabayConfigured", sceneAssetRenderer.pixabayConfigured(),
-                "ownedMediaUpload", true,
-                "fallbackAssets", true,
-                "formats", Map.of(
+        return Map.ofEntries(
+                Map.entry("selectedVoiceProvider", voiceProviderRouter.selectedName()),
+                Map.entry("voiceConfigured", voiceProviderRouter.selectedConfigured()),
+                Map.entry("availableVoiceProviders", voiceProviderRouter.availableProviders()),
+                Map.entry("supportedVoiceStyles", voiceProviderRouter.supportedStyles()),
+                Map.entry("voiceCatalog", voiceProviderRouter.voiceCatalog()),
+                Map.entry("pixabayConfigured", sceneAssetRenderer.pixabayConfigured()),
+                Map.entry("ownedMediaUpload", true),
+                Map.entry("fallbackAssets", true),
+                Map.entry("formats", Map.of(
                         "preview", "540x960 MP4",
                         "final", "1080x1920 MP4"
-                )
+                ))
         );
+    }
+
+    public VoiceTrack previewVoice(String provider, String voiceId, String text, String style, Path outputDir) {
+        VideoVoiceStyle voiceStyle;
+        try {
+            voiceStyle = VideoVoiceStyle.valueOf(style.trim().toUpperCase(java.util.Locale.ROOT));
+        } catch (IllegalArgumentException e) {
+            voiceStyle = VideoVoiceStyle.NATURAL;
+        }
+        String previewText = text.length() > 100 ? text.substring(0, 100) : text;
+        return voiceProviderRouter.synthesize(previewText, outputDir, "preview", voiceStyle, provider, voiceId);
     }
 
     private VideoRenderJob requireJob(UUID jobId) {

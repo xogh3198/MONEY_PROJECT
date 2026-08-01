@@ -65,12 +65,45 @@ public class ElevenLabsVoiceProvider implements VoiceProvider {
     }
 
     @Override
+    public String displayName() {
+        return "ElevenLabs";
+    }
+
+    @Override
+    public String tier() {
+        return "PREMIUM";
+    }
+
+    @Override
+    public List<Map<String, Object>> availableVoices() {
+        if (!configured()) return List.of();
+        return List.of(
+                Map.of("id", voiceId, "name", "기본 음성", "gender", "UNKNOWN",
+                        "description", "설정된 기본 ElevenLabs 음성",
+                        "styles", List.of("NATURAL", "WHISPER", "SNARKY"))
+        );
+    }
+
+    @Override
     public VoiceTrack synthesize(
             String narration,
             Path outputDirectory,
             String fileStem,
             VideoVoiceStyle voiceStyle
     ) {
+        return synthesize(narration, outputDirectory, fileStem, voiceStyle, null);
+    }
+
+    @Override
+    public VoiceTrack synthesize(
+            String narration,
+            Path outputDirectory,
+            String fileStem,
+            VideoVoiceStyle voiceStyle,
+            String requestedVoiceId
+    ) {
+        String effectiveVoiceId = (requestedVoiceId != null && !requestedVoiceId.isBlank())
+                ? requestedVoiceId.trim() : this.voiceId;
         if (!configured()) throw new IllegalStateException("ElevenLabs API 설정이 비어 있습니다.");
         try {
             Files.createDirectories(outputDirectory);
@@ -84,7 +117,7 @@ public class ElevenLabsVoiceProvider implements VoiceProvider {
 
             URI uri = URI.create(
                     "https://api.elevenlabs.io/v1/text-to-speech/"
-                            + voiceId
+                            + effectiveVoiceId
                             + "/with-timestamps?output_format=mp3_44100_128"
             );
             HttpRequest request = HttpRequest.newBuilder(uri)

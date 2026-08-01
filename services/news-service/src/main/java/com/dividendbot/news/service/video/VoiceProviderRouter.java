@@ -7,6 +7,7 @@ import org.springframework.stereotype.Component;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 @Component
 public class VoiceProviderRouter {
@@ -28,7 +29,28 @@ public class VoiceProviderRouter {
             String fileStem,
             VideoVoiceStyle voiceStyle
     ) {
-        VoiceProvider provider = selected();
+        return synthesize(narration, outputDirectory, fileStem, voiceStyle, null, null);
+    }
+
+    public VoiceTrack synthesize(
+            String narration,
+            Path outputDirectory,
+            String fileStem,
+            VideoVoiceStyle voiceStyle,
+            String requestedProvider,
+            String requestedVoiceId
+    ) {
+        VoiceProvider provider;
+        if (requestedProvider != null && !requestedProvider.isBlank()) {
+            provider = providers.stream()
+                    .filter(p -> p.name().equalsIgnoreCase(requestedProvider.trim()))
+                    .findFirst()
+                    .orElseThrow(() -> new IllegalStateException(
+                            "지원하지 않는 음성 공급자입니다: " + requestedProvider
+                    ));
+        } else {
+            provider = selected();
+        }
         if (!provider.configured()) {
             throw new IllegalStateException(provider.name() + " 음성 공급자 설정이 완료되지 않았습니다.");
         }
@@ -37,7 +59,7 @@ public class VoiceProviderRouter {
                     "속삭임·시니컬 음성은 ElevenLabs 또는 Typecast API 설정 후 사용할 수 있습니다."
             );
         }
-        return provider.synthesize(narration, outputDirectory, fileStem, voiceStyle);
+        return provider.synthesize(narration, outputDirectory, fileStem, voiceStyle, requestedVoiceId);
     }
 
     public String selectedName() {
@@ -61,6 +83,20 @@ public class VoiceProviderRouter {
             return List.of("NATURAL", "WHISPER", "SNARKY");
         }
         return List.of("NATURAL");
+    }
+
+    public List<Map<String, Object>> voiceCatalog() {
+        List<Map<String, Object>> catalog = new java.util.ArrayList<>();
+        for (VoiceProvider provider : providers) {
+            Map<String, Object> entry = new java.util.LinkedHashMap<>();
+            entry.put("id", provider.name());
+            entry.put("name", provider.displayName());
+            entry.put("tier", provider.tier());
+            entry.put("configured", provider.configured());
+            entry.put("voices", provider.availableVoices());
+            catalog.add(entry);
+        }
+        return catalog;
     }
 
     private VoiceProvider selected() {

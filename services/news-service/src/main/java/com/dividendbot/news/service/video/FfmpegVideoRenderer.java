@@ -73,7 +73,9 @@ public class FfmpegVideoRenderer {
                         scene.narration(),
                         jobDirectory,
                         stem,
-                        request.normalizedVoiceStyle()
+                        request.normalizedVoiceStyle(),
+                        request.voiceProvider(),
+                        request.voiceId()
                 );
                 voiceProvider = voice.provider();
 

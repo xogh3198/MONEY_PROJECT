@@ -23,8 +23,12 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Map;
 import java.util.UUID;
+import org.springframework.core.io.FileSystemResource;
+import com.dividendbot.news.service.video.VoiceTrack;
 
 @RestController
 @RequestMapping("/api/content-videos")
@@ -111,5 +115,29 @@ public class ContentVideoController {
         return ResponseEntity.ok()
                 .cacheControl(CacheControl.noStore())
                 .body(videoRenderService.capabilities());
+    }
+
+    @PostMapping("/voice-preview")
+    public ResponseEntity<Resource> voicePreview(
+            @RequestHeader(value = "X-Video-Render-Key", required = false) String accessKey,
+            @RequestBody Map<String, String> body
+    ) {
+        accessGuard.requireAuthorized(accessKey);
+        String provider = body.getOrDefault("provider", "POLLY");
+        String voiceIdParam = body.getOrDefault("voiceId", "");
+        String text = body.getOrDefault("text", "안녕하세요, AI 음성 미리듣기입니다.");
+        String style = body.getOrDefault("voiceStyle", "NATURAL");
+        try {
+            Path tempDir = Files.createTempDirectory("voice-preview-");
+            VoiceTrack track = videoRenderService.previewVoice(provider, voiceIdParam, text, style, tempDir);
+            Resource resource = new FileSystemResource(track.audioFile());
+            return ResponseEntity.ok()
+                    .cacheControl(CacheControl.noStore())
+                    .contentType(MediaType.parseMediaType("audio/mpeg"))
+                    .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"preview.mp3\"")
+                    .body(resource);
+        } catch (Exception e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "음성 미리듣기 생성에 실패했습니다: " + e.getMessage());
+        }
     }
 }

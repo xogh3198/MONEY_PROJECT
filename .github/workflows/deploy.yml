@@ -3,6 +3,10 @@ name: Deploy to EC2
 on:
   workflow_dispatch:
 
+concurrency:
+  group: money-project-production
+  cancel-in-progress: false
+
 jobs:
   deploy:
     name: Deploy

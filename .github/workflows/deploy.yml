@@ -103,12 +103,11 @@ jobs:
               "JWT_SECRET=${JWT_SECRET}" \
               > "$RUNTIME_ENV_FILE"
 
-            # Docker 빌드 캐시 정리 (디스크 확보)
-            sudo docker builder prune -f
+            # Docker 사용하지 않는 컨테이너/불필요 레이어만 정리 (빌드 캐시는 유지)
             sudo docker image prune -f
 
-            # 순차 빌드 (메모리 부족 방지)
-            echo "Using the Docker legacy builder for Amazon Linux compatibility"
+            # 캐시를 활용한 빌드
+            echo "Building services with layer cache enabled..."
             sudo env DOCKER_BUILDKIT=0 docker build -t money_project-dividend-engine ./services
             sudo env DOCKER_BUILDKIT=0 docker build -t money_project-webhook-gateway ./services/webhook-gateway
             sudo env DOCKER_BUILDKIT=0 docker build -t money_project-notification ./services/notification

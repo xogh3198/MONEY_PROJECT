@@ -1,5 +1,6 @@
 package com.dividendbot.news.service.video;
 
+import com.dividendbot.news.domain.entity.VideoVoiceStyle;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
@@ -52,7 +53,12 @@ public class PollyVoiceProvider implements VoiceProvider {
     }
 
     @Override
-    public VoiceTrack synthesize(String narration, Path outputDirectory, String fileStem) {
+    public VoiceTrack synthesize(
+            String narration,
+            Path outputDirectory,
+            String fileStem,
+            VideoVoiceStyle voiceStyle
+    ) {
         if (!configured()) throw new IllegalStateException("Amazon Polly 설정이 비어 있습니다.");
         try {
             Files.createDirectories(outputDirectory);

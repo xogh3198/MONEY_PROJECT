@@ -20,13 +20,15 @@ class SceneAssetRendererTest {
 
     @Test
     void createsRightsSafeFallbackCardWhenPixabayIsNotConfigured() throws Exception {
-        SceneAssetRenderer renderer = new SceneAssetRenderer(new ObjectMapper(), "");
+        VideoAssetStorage assetStorage = new VideoAssetStorage(tempDirectory.toString());
+        SceneAssetRenderer renderer = new SceneAssetRenderer(new ObjectMapper(), "", assetStorage);
         VideoRenderRequest.Scene scene = new VideoRenderRequest.Scene(
                 1,
                 "오늘 시장에서 확인할 핵심 내용입니다.",
                 "환율이 움직인 진짜 이유",
                 "차트와 환율 이미지",
-                List.of("환율", "금융시장")
+                List.of("환율", "금융시장"),
+                null
         );
         Path output = tempDirectory.resolve("scene.png");
 

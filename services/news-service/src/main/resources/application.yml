@@ -13,6 +13,10 @@ spring:
     scheduling:
       pool:
         size: 3
+  servlet:
+    multipart:
+      max-file-size: 25MB
+      max-request-size: 26MB
 
 server:
   port: 8083
@@ -53,6 +57,9 @@ video:
     polly-engine: ${POLLY_ENGINE:neural}
     typecast-api-key: ${TYPECAST_API_KEY:}
     typecast-voice-id: ${TYPECAST_VOICE_ID:}
+    elevenlabs-api-key: ${ELEVENLABS_API_KEY:}
+    elevenlabs-voice-id: ${ELEVENLABS_VOICE_ID:}
+    elevenlabs-model-id: ${ELEVENLABS_MODEL_ID:eleven_v3}
   assets:
     pixabay-api-key: ${PIXABAY_API_KEY:}
 

@@ -94,7 +94,9 @@ public class VideoRenderService {
                 "selectedVoiceProvider", voiceProviderRouter.selectedName(),
                 "voiceConfigured", voiceProviderRouter.selectedConfigured(),
                 "availableVoiceProviders", voiceProviderRouter.availableProviders(),
+                "supportedVoiceStyles", voiceProviderRouter.supportedStyles(),
                 "pixabayConfigured", sceneAssetRenderer.pixabayConfigured(),
+                "ownedMediaUpload", true,
                 "fallbackAssets", true,
                 "formats", Map.of(
                         "preview", "540x960 MP4",

@@ -1,5 +1,6 @@
 package com.dividendbot.news.service.video;
 
+import com.dividendbot.news.domain.entity.VideoVoiceStyle;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -21,16 +22,26 @@ public class VoiceProviderRouter {
         this.selectedProvider = normalize(selectedProvider);
     }
 
-    public VoiceTrack synthesize(String narration, Path outputDirectory, String fileStem) {
+    public VoiceTrack synthesize(
+            String narration,
+            Path outputDirectory,
+            String fileStem,
+            VideoVoiceStyle voiceStyle
+    ) {
         VoiceProvider provider = selected();
         if (!provider.configured()) {
             throw new IllegalStateException(provider.name() + " 음성 공급자 설정이 완료되지 않았습니다.");
         }
-        return provider.synthesize(narration, outputDirectory, fileStem);
+        if (voiceStyle != VideoVoiceStyle.NATURAL && !expressive(provider)) {
+            throw new IllegalStateException(
+                    "속삭임·시니컬 음성은 ElevenLabs 또는 Typecast API 설정 후 사용할 수 있습니다."
+            );
+        }
+        return provider.synthesize(narration, outputDirectory, fileStem, voiceStyle);
     }
 
     public String selectedName() {
-        return selectedProvider;
+        return selected().name();
     }
 
     public boolean selectedConfigured() {
@@ -45,7 +56,21 @@ public class VoiceProviderRouter {
                 .toList();
     }
 
+    public List<String> supportedStyles() {
+        if (expressive(selected())) {
+            return List.of("NATURAL", "WHISPER", "SNARKY");
+        }
+        return List.of("NATURAL");
+    }
+
     private VoiceProvider selected() {
+        if (selectedProvider.equals("AUTO")) {
+            return providers.stream()
+                    .filter(VoiceProvider::configured)
+                    .sorted((left, right) -> Integer.compare(priority(left), priority(right)))
+                    .findFirst()
+                    .orElseThrow(() -> new IllegalStateException("사용 가능한 음성 공급자 설정이 없습니다."));
+        }
         return providers.stream()
                 .filter(provider -> provider.name().equalsIgnoreCase(selectedProvider))
                 .findFirst()
@@ -57,5 +82,17 @@ public class VoiceProviderRouter {
     private String normalize(String value) {
         if (value == null || value.isBlank()) return "POLLY";
         return value.trim().toUpperCase(Locale.ROOT);
+    }
+
+    private int priority(VoiceProvider provider) {
+        if (provider.name().equalsIgnoreCase("ELEVENLABS")) return 0;
+        if (provider.name().equalsIgnoreCase("TYPECAST")) return 1;
+        if (provider.name().equalsIgnoreCase("POLLY")) return 2;
+        return 10;
+    }
+
+    private boolean expressive(VoiceProvider provider) {
+        return provider.name().equalsIgnoreCase("ELEVENLABS")
+                || provider.name().equalsIgnoreCase("TYPECAST");
     }
 }

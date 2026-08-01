@@ -1,5 +1,6 @@
 package com.dividendbot.news.service.video;
 
+import com.dividendbot.news.domain.entity.VideoVoiceStyle;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Value;
@@ -59,7 +60,12 @@ public class TypecastVoiceProvider implements VoiceProvider {
     }
 
     @Override
-    public VoiceTrack synthesize(String narration, Path outputDirectory, String fileStem) {
+    public VoiceTrack synthesize(
+            String narration,
+            Path outputDirectory,
+            String fileStem,
+            VideoVoiceStyle voiceStyle
+    ) {
         if (!configured()) throw new IllegalStateException("Typecast API 설정이 비어 있습니다.");
         try {
             Files.createDirectories(outputDirectory);
@@ -70,16 +76,13 @@ public class TypecastVoiceProvider implements VoiceProvider {
             payload.put("text", narration);
             payload.put("model", "ssfm-v30");
             payload.put("language", "kor");
-            payload.put("prompt", Map.of(
-                    "emotion_type", "preset",
-                    "emotion_preset", "normal",
-                    "emotion_intensity", 1.15
-            ));
+            VideoVoiceStyle normalizedStyle = voiceStyle == null ? VideoVoiceStyle.NATURAL : voiceStyle;
+            payload.put("prompt", promptFor(normalizedStyle));
             payload.put("output", Map.of(
                     "target_lufs", -14,
                     "volume", 100,
-                    "audio_pitch", 0,
-                    "audio_tempo", 1.03,
+                    "audio_pitch", pitchFor(normalizedStyle),
+                    "audio_tempo", tempoFor(normalizedStyle),
                     "audio_format", "wav"
             ));
 
@@ -148,6 +151,38 @@ public class TypecastVoiceProvider implements VoiceProvider {
             captions.add(new TimedCaption(start, Math.max(end, duration), text.toString()));
         }
         return captions;
+    }
+
+    private Map<String, Object> promptFor(VideoVoiceStyle style) {
+        return switch (style) {
+            case WHISPER -> Map.of(
+                    "emotion_type", "preset",
+                    "emotion_preset", "whisper",
+                    "emotion_intensity", 1.35
+            );
+            case SNARKY -> Map.of(
+                    "emotion_type", "preset",
+                    "emotion_preset", "tonedown",
+                    "emotion_intensity", 1.45
+            );
+            case NATURAL -> Map.of("emotion_type", "smart");
+        };
+    }
+
+    private int pitchFor(VideoVoiceStyle style) {
+        return switch (style) {
+            case WHISPER -> -1;
+            case SNARKY -> 1;
+            case NATURAL -> 0;
+        };
+    }
+
+    private double tempoFor(VideoVoiceStyle style) {
+        return switch (style) {
+            case WHISPER -> 1.04;
+            case SNARKY -> 1.08;
+            case NATURAL -> 1.03;
+        };
     }
 
     private String safeMessage(Exception error) {

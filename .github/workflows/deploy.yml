@@ -20,12 +20,14 @@ jobs:
           VIDEO_RENDER_ACCESS_KEY: ${{ secrets.VIDEO_RENDER_ACCESS_KEY }}
           TYPECAST_API_KEY: ${{ secrets.TYPECAST_API_KEY }}
           TYPECAST_VOICE_ID: ${{ secrets.TYPECAST_VOICE_ID }}
+          ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
+          ELEVENLABS_VOICE_ID: ${{ secrets.ELEVENLABS_VOICE_ID }}
           PIXABAY_API_KEY: ${{ secrets.PIXABAY_API_KEY }}
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
-          envs: NAVER_CLIENT_ID,NAVER_CLIENT_SECRET,YOUTUBE_API_KEY,VIDEO_RENDER_ENABLED,VIDEO_RENDER_ACCESS_KEY,TYPECAST_API_KEY,TYPECAST_VOICE_ID,PIXABAY_API_KEY
+          envs: NAVER_CLIENT_ID,NAVER_CLIENT_SECRET,YOUTUBE_API_KEY,VIDEO_RENDER_ENABLED,VIDEO_RENDER_ACCESS_KEY,TYPECAST_API_KEY,TYPECAST_VOICE_ID,ELEVENLABS_API_KEY,ELEVENLABS_VOICE_ID,PIXABAY_API_KEY
           command_timeout: 30m
           script: |
             set -euo pipefail
@@ -83,12 +85,15 @@ jobs:
               "YOUTUBE_API_KEY=${YOUTUBE_API_KEY:-}" \
               "VIDEO_RENDER_ENABLED=${VIDEO_RENDER_ENABLED:-false}" \
               "VIDEO_RENDER_ACCESS_KEY=${VIDEO_RENDER_ACCESS_KEY:-}" \
-              "VIDEO_VOICE_PROVIDER=POLLY" \
+              "VIDEO_VOICE_PROVIDER=AUTO" \
               "AWS_REGION=ap-northeast-2" \
               "POLLY_VOICE_ID=Jihye" \
               "POLLY_ENGINE=neural" \
               "TYPECAST_API_KEY=${TYPECAST_API_KEY:-}" \
               "TYPECAST_VOICE_ID=${TYPECAST_VOICE_ID:-}" \
+              "ELEVENLABS_API_KEY=${ELEVENLABS_API_KEY:-}" \
+              "ELEVENLABS_VOICE_ID=${ELEVENLABS_VOICE_ID:-}" \
+              "ELEVENLABS_MODEL_ID=eleven_v3" \
               "PIXABAY_API_KEY=${PIXABAY_API_KEY:-}" \
               "DB_PASSWORD=${DB_PASSWORD}" \
               "JWT_SECRET=${JWT_SECRET}" \

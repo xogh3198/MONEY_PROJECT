@@ -2,6 +2,7 @@ package com.dividendbot.news.controller;
 
 import com.dividendbot.news.dto.VideoRenderJobResponse;
 import com.dividendbot.news.dto.VideoRenderRequest;
+import com.dividendbot.news.service.video.VideoAssetStorage;
 import com.dividendbot.news.service.video.VideoRenderAccessGuard;
 import com.dividendbot.news.service.video.VideoRenderService;
 import jakarta.validation.Valid;
@@ -9,6 +10,7 @@ import org.springframework.core.io.Resource;
 import org.springframework.http.CacheControl;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -16,7 +18,10 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.Map;
 import java.util.UUID;
@@ -26,14 +31,39 @@ import java.util.UUID;
 public class ContentVideoController {
 
     private final VideoRenderAccessGuard accessGuard;
+    private final VideoAssetStorage assetStorage;
     private final VideoRenderService videoRenderService;
 
     public ContentVideoController(
             VideoRenderAccessGuard accessGuard,
+            VideoAssetStorage assetStorage,
             VideoRenderService videoRenderService
     ) {
         this.accessGuard = accessGuard;
+        this.assetStorage = assetStorage;
         this.videoRenderService = videoRenderService;
+    }
+
+    @PostMapping(value = "/assets", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<Map<String, Object>> uploadAsset(
+            @RequestHeader(value = "X-Video-Render-Key", required = false) String accessKey,
+            @RequestPart("file") MultipartFile file
+    ) {
+        accessGuard.requireAuthorized(accessKey);
+        VideoAssetStorage.StoredVideoAsset stored;
+        try {
+            stored = assetStorage.store(file);
+        } catch (IllegalArgumentException exception) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, exception.getMessage(), exception);
+        }
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.noStore())
+                .body(Map.of(
+                        "assetRef", stored.reference(),
+                        "mediaKind", stored.mediaKind().name(),
+                        "contentType", stored.contentType(),
+                        "fileName", file.getOriginalFilename() == null ? "scene-asset" : file.getOriginalFilename()
+                ));
     }
 
     @PostMapping("/render")

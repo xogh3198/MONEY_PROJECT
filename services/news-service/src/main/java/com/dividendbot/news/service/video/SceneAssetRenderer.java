@@ -31,14 +31,17 @@ public class SceneAssetRenderer {
 
     private final ObjectMapper objectMapper;
     private final String pixabayApiKey;
+    private final VideoAssetStorage assetStorage;
     private final HttpClient httpClient;
 
     public SceneAssetRenderer(
             ObjectMapper objectMapper,
-            @Value("${video.assets.pixabay-api-key:}") String pixabayApiKey
+            @Value("${video.assets.pixabay-api-key:}") String pixabayApiKey,
+            VideoAssetStorage assetStorage
     ) {
         this.objectMapper = objectMapper;
         this.pixabayApiKey = pixabayApiKey;
+        this.assetStorage = assetStorage;
         this.httpClient = HttpClient.newBuilder()
                 .followRedirects(HttpClient.Redirect.NEVER)
                 .connectTimeout(Duration.ofSeconds(8))
@@ -53,6 +56,35 @@ public class SceneAssetRenderer {
     ) {
         try {
             Files.createDirectories(outputFile.getParent());
+            if (scene.assetRef() != null && !scene.assetRef().isBlank()) {
+                VideoAssetStorage.StoredVideoAsset owned = assetStorage.resolve(scene.assetRef());
+                if (owned.mediaKind() == SceneMediaKind.VIDEO) {
+                    return new RenderedSceneAsset(
+                            owned.path(),
+                            "사용자 제공 영상 · 게시 전 사용권 확인",
+                            "USER_UPLOAD",
+                            SceneMediaKind.VIDEO
+                    );
+                }
+                BufferedImage ownedImage = ImageIO.read(owned.path().toFile());
+                if (ownedImage == null) {
+                    throw new IllegalArgumentException("업로드한 장면 이미지를 읽을 수 없습니다.");
+                }
+                BufferedImage canvas = createCanvas(
+                        ownedImage,
+                        scene.onScreenText(),
+                        width,
+                        height,
+                        scene.order()
+                );
+                ImageIO.write(canvas, "png", outputFile.toFile());
+                return new RenderedSceneAsset(
+                        outputFile,
+                        "사용자 제공 이미지 · 게시 전 사용권 확인",
+                        "USER_UPLOAD",
+                        SceneMediaKind.IMAGE
+                );
+            }
             Optional<PixabayImage> remote = findPixabayImage(scene);
             BufferedImage source = remote.flatMap(this::downloadImage).orElse(null);
             BufferedImage canvas = createCanvas(source, scene.onScreenText(), width, height, scene.order());
@@ -62,15 +94,26 @@ public class SceneAssetRenderer {
                 return new RenderedSceneAsset(
                         outputFile,
                         "Pixabay / " + image.user() + " / " + image.pageUrl(),
-                        "PIXABAY"
+                        "PIXABAY",
+                        SceneMediaKind.IMAGE
                 );
             }
-            return new RenderedSceneAsset(outputFile, "InvestBoard 자체 생성 카드", "GENERATED");
+            return new RenderedSceneAsset(
+                    outputFile,
+                    "InvestBoard 자체 생성 카드",
+                    "GENERATED",
+                    SceneMediaKind.IMAGE
+            );
         } catch (Exception ignored) {
             try {
                 BufferedImage fallback = createCanvas(null, scene.onScreenText(), width, height, scene.order());
                 ImageIO.write(fallback, "png", outputFile.toFile());
-                return new RenderedSceneAsset(outputFile, "InvestBoard 자체 생성 카드", "GENERATED");
+                return new RenderedSceneAsset(
+                        outputFile,
+                        "InvestBoard 자체 생성 카드",
+                        "GENERATED",
+                        SceneMediaKind.IMAGE
+                );
             } catch (Exception e) {
                 throw new IllegalStateException("영상 장면 이미지를 만들지 못했습니다.", e);
             }

@@ -69,7 +69,12 @@ public class FfmpegVideoRenderer {
                 ));
 
                 String stem = String.format("scene-%02d", number);
-                VoiceTrack voice = voiceProviderRouter.synthesize(scene.narration(), jobDirectory, stem);
+                VoiceTrack voice = voiceProviderRouter.synthesize(
+                        scene.narration(),
+                        jobDirectory,
+                        stem,
+                        request.normalizedVoiceStyle()
+                );
                 voiceProvider = voice.provider();
 
                 progress.accept(new VideoRenderProgress(
@@ -96,7 +101,7 @@ public class FfmpegVideoRenderer {
                         baseProgress + Math.max(2, 55 / sceneCount)
                 ));
                 Path sceneFile = jobDirectory.resolve(stem + ".mp4");
-                renderScene(imageFile, voice, subtitleFile, sceneFile, quality);
+                renderScene(asset, voice, subtitleFile, sceneFile, quality);
                 sceneFiles.add(sceneFile);
             }
 
@@ -136,44 +141,62 @@ public class FfmpegVideoRenderer {
         return directory;
     }
 
-    private void renderScene(
-            Path imageFile,
+    void renderScene(
+            RenderedSceneAsset asset,
             VoiceTrack voice,
             Path subtitleFile,
             Path outputFile,
             VideoRenderQuality quality
     ) {
-        String videoFilter = "zoompan=z='min(zoom+0.00045,1.06)'"
-                + ":x='iw/2-(iw/zoom/2)'"
-                + ":y='ih/2-(ih/zoom/2)'"
-                + ":d=" + Math.max(1, (int) Math.ceil(voice.durationSeconds() * quality.fps()))
-                + ":s=" + quality.width() + "x" + quality.height()
-                + ":fps=" + quality.fps()
-                + ",ass=filename='" + escapeFilterPath(subtitleFile.toAbsolutePath()) + "'";
+        String subtitleFilter = "ass=filename='" + escapeFilterPath(subtitleFile.toAbsolutePath()) + "'";
+        String videoFilter;
+        List<String> inputArguments;
+        if (asset.mediaKind() == SceneMediaKind.VIDEO) {
+            videoFilter = "scale=" + quality.width() + ":" + quality.height()
+                    + ":force_original_aspect_ratio=increase"
+                    + ",crop=" + quality.width() + ":" + quality.height()
+                    + ",setsar=1,fps=" + quality.fps()
+                    + ",setpts=PTS-STARTPTS," + subtitleFilter;
+            inputArguments = List.of(
+                    "-stream_loop", "-1",
+                    "-i", asset.mediaFile().toAbsolutePath().toString()
+            );
+        } else {
+            videoFilter = "zoompan=z='min(zoom+0.00045,1.06)'"
+                    + ":x='iw/2-(iw/zoom/2)'"
+                    + ":y='ih/2-(ih/zoom/2)'"
+                    + ":d=" + Math.max(1, (int) Math.ceil(voice.durationSeconds() * quality.fps()))
+                    + ":s=" + quality.width() + "x" + quality.height()
+                    + ":fps=" + quality.fps()
+                    + "," + subtitleFilter;
+            inputArguments = List.of(
+                    "-loop", "1",
+                    "-framerate", String.valueOf(quality.fps()),
+                    "-i", asset.mediaFile().toAbsolutePath().toString()
+            );
+        }
 
-        processRunner.run(
-                List.of(
-                        ffmpegPath,
-                        "-hide_banner", "-loglevel", "error", "-y",
-                        "-loop", "1",
-                        "-framerate", String.valueOf(quality.fps()),
-                        "-i", imageFile.toAbsolutePath().toString(),
-                        "-i", voice.audioFile().toAbsolutePath().toString(),
-                        "-vf", videoFilter,
-                        "-t", String.format(java.util.Locale.ROOT, "%.3f", voice.durationSeconds()),
-                        "-c:v", "libx264",
-                        "-preset", "veryfast",
-                        "-crf", String.valueOf(quality.crf()),
-                        "-pix_fmt", "yuv420p",
-                        "-threads", "1",
-                        "-c:a", "aac",
-                        "-b:a", "128k",
-                        "-ar", "44100",
-                        "-shortest",
-                        outputFile.toAbsolutePath().toString()
-                ),
-                Duration.ofMinutes(5)
-        );
+        List<String> command = new ArrayList<>();
+        command.addAll(List.of(ffmpegPath, "-hide_banner", "-loglevel", "error", "-y"));
+        command.addAll(inputArguments);
+        command.addAll(List.of(
+                "-i", voice.audioFile().toAbsolutePath().toString(),
+                "-map", "0:v:0",
+                "-map", "1:a:0",
+                "-vf", videoFilter,
+                "-t", String.format(java.util.Locale.ROOT, "%.3f", voice.durationSeconds()),
+                "-c:v", "libx264",
+                "-preset", "veryfast",
+                "-crf", String.valueOf(quality.crf()),
+                "-pix_fmt", "yuv420p",
+                "-threads", "1",
+                "-c:a", "aac",
+                "-b:a", "128k",
+                "-ar", "44100",
+                "-shortest",
+                outputFile.toAbsolutePath().toString()
+        ));
+        processRunner.run(command, Duration.ofMinutes(5));
     }
 
     private void concatenate(List<Path> sceneFiles, Path outputFile, Path concatFile) {

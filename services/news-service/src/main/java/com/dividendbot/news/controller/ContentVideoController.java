@@ -2,6 +2,12 @@ package com.dividendbot.news.controller;
 
 import com.dividendbot.news.dto.VideoRenderJobResponse;
 import com.dividendbot.news.dto.VideoRenderRequest;
+import com.dividendbot.news.dto.AiSceneGenerationJobResponse;
+import com.dividendbot.news.dto.AiSceneGenerationRequest;
+import com.dividendbot.news.dto.ReferenceVideoAnalysisRequest;
+import com.dividendbot.news.dto.ReferenceVideoAnalysisResponse;
+import com.dividendbot.news.service.video.AiSceneGenerationService;
+import com.dividendbot.news.service.video.ApifyYouTubeReferenceService;
 import com.dividendbot.news.service.video.VideoAssetStorage;
 import com.dividendbot.news.service.video.VideoRenderAccessGuard;
 import com.dividendbot.news.service.video.VideoRenderService;
@@ -26,6 +32,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
+import java.util.HashMap;
 import java.util.UUID;
 import org.springframework.core.io.FileSystemResource;
 import com.dividendbot.news.service.video.VoiceTrack;
@@ -37,15 +44,74 @@ public class ContentVideoController {
     private final VideoRenderAccessGuard accessGuard;
     private final VideoAssetStorage assetStorage;
     private final VideoRenderService videoRenderService;
+    private final AiSceneGenerationService aiSceneGenerationService;
+    private final ApifyYouTubeReferenceService referenceVideoService;
 
     public ContentVideoController(
             VideoRenderAccessGuard accessGuard,
             VideoAssetStorage assetStorage,
-            VideoRenderService videoRenderService
+            VideoRenderService videoRenderService,
+            AiSceneGenerationService aiSceneGenerationService,
+            ApifyYouTubeReferenceService referenceVideoService
     ) {
         this.accessGuard = accessGuard;
         this.assetStorage = assetStorage;
         this.videoRenderService = videoRenderService;
+        this.aiSceneGenerationService = aiSceneGenerationService;
+        this.referenceVideoService = referenceVideoService;
+    }
+
+    @PostMapping("/reference-analysis")
+    public ResponseEntity<ReferenceVideoAnalysisResponse> analyzeReference(
+            @RequestHeader(value = "X-Video-Render-Key", required = false) String accessKey,
+            @Valid @RequestBody ReferenceVideoAnalysisRequest request
+    ) {
+        accessGuard.requireAuthorized(accessKey);
+        try {
+            return ResponseEntity.ok()
+                    .cacheControl(CacheControl.noStore())
+                    .body(referenceVideoService.analyze(request));
+        } catch (IllegalArgumentException exception) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, exception.getMessage(), exception);
+        }
+    }
+
+    @PostMapping("/ai-assets")
+    public ResponseEntity<AiSceneGenerationJobResponse> generateAiAsset(
+            @RequestHeader(value = "X-Video-Render-Key", required = false) String accessKey,
+            @Valid @RequestBody AiSceneGenerationRequest request
+    ) {
+        accessGuard.requireAuthorized(accessKey);
+        return ResponseEntity.accepted()
+                .cacheControl(CacheControl.noStore())
+                .body(aiSceneGenerationService.submit(request));
+    }
+
+    @GetMapping("/ai-assets/{jobId}")
+    public ResponseEntity<AiSceneGenerationJobResponse> getAiAsset(
+            @RequestHeader(value = "X-Video-Render-Key", required = false) String accessKey,
+            @PathVariable UUID jobId
+    ) {
+        accessGuard.requireAuthorized(accessKey);
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.noStore())
+                .body(aiSceneGenerationService.get(jobId));
+    }
+
+    @GetMapping("/ai-assets/{jobId}/file")
+    public ResponseEntity<Resource> aiAssetFile(
+            @RequestHeader(value = "X-Video-Render-Key", required = false) String accessKey,
+            @PathVariable UUID jobId
+    ) {
+        accessGuard.requireAuthorized(accessKey);
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.noStore())
+                .contentType(MediaType.parseMediaType("video/mp4"))
+                .header(
+                        HttpHeaders.CONTENT_DISPOSITION,
+                        "inline; filename=\"" + aiSceneGenerationService.fileName(jobId) + "\""
+                )
+                .body(aiSceneGenerationService.getFile(jobId));
     }
 
     @PostMapping(value = "/assets", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -112,9 +178,14 @@ public class ContentVideoController {
             @RequestHeader(value = "X-Video-Render-Key", required = false) String accessKey
     ) {
         accessGuard.requireAuthorized(accessKey);
+        Map<String, Object> capabilities = new HashMap<>(videoRenderService.capabilities());
+        capabilities.put("higgsfieldConfigured", aiSceneGenerationService.configured());
+        capabilities.put("aiSceneProvider", aiSceneGenerationService.providerName());
+        capabilities.put("apifyReferenceConfigured", referenceVideoService.configured());
+        capabilities.put("referenceAnalysisProvider", "APIFY");
         return ResponseEntity.ok()
                 .cacheControl(CacheControl.noStore())
-                .body(videoRenderService.capabilities());
+                .body(capabilities);
     }
 
     @PostMapping("/voice-preview")

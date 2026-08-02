@@ -79,7 +79,18 @@ services:
       POLLY_ENGINE: ${POLLY_ENGINE:-neural}
       TYPECAST_API_KEY: ${TYPECAST_API_KEY:-}
       TYPECAST_VOICE_ID: ${TYPECAST_VOICE_ID:-}
+      ELEVENLABS_API_KEY: ${ELEVENLABS_API_KEY:-}
+      ELEVENLABS_VOICE_ID: ${ELEVENLABS_VOICE_ID:-}
+      ELEVENLABS_MODEL_ID: ${ELEVENLABS_MODEL_ID:-eleven_v3}
       PIXABAY_API_KEY: ${PIXABAY_API_KEY:-}
+      APIFY_REFERENCE_ENABLED: ${APIFY_REFERENCE_ENABLED:-false}
+      APIFY_API_TOKEN: ${APIFY_API_TOKEN:-}
+      APIFY_YOUTUBE_ACTOR_ID: ${APIFY_YOUTUBE_ACTOR_ID:-apihq~youtube-transcript-scraper}
+      HIGGSFIELD_ENABLED: ${HIGGSFIELD_ENABLED:-false}
+      HIGGSFIELD_API_KEY: ${HIGGSFIELD_API_KEY:-}
+      HIGGSFIELD_API_SECRET: ${HIGGSFIELD_API_SECRET:-}
+      HIGGSFIELD_IMAGE_MODEL: ${HIGGSFIELD_IMAGE_MODEL:-higgsfield-ai/soul/standard}
+      HIGGSFIELD_VIDEO_MODEL: ${HIGGSFIELD_VIDEO_MODEL:-higgsfield-ai/dop/standard}
       JWT_SECRET: ${JWT_SECRET:-local-development-secret-key-change-me}
     volumes:
       - video_renders:/var/lib/investboard/videos

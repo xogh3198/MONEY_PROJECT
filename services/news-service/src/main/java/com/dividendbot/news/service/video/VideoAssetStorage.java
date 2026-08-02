@@ -64,6 +64,34 @@ public class VideoAssetStorage {
         }
     }
 
+    public StoredVideoAsset storeGenerated(byte[] data, String contentType) {
+        if (data == null || data.length == 0) {
+            throw new IllegalArgumentException("생성된 장면 영상이 비어 있습니다.");
+        }
+        if (data.length > MAX_UPLOAD_BYTES) {
+            throw new IllegalArgumentException("생성된 장면 영상은 25MB 이하여야 합니다.");
+        }
+        String normalizedType = Optional.ofNullable(contentType)
+                .orElse("")
+                .split(";", 2)[0]
+                .trim()
+                .toLowerCase(Locale.ROOT);
+        AssetType assetType = ALLOWED_TYPES.get(normalizedType);
+        if (assetType == null || assetType.mediaKind() != SceneMediaKind.VIDEO) {
+            throw new IllegalArgumentException("생성 장면은 MP4, WebM 또는 MOV 영상이어야 합니다.");
+        }
+
+        String reference = UUID.randomUUID() + "." + assetType.extension();
+        Path target = safePath(reference);
+        try {
+            Files.createDirectories(uploadRoot);
+            Files.write(target, data);
+            return new StoredVideoAsset(reference, target, assetType.mediaKind(), normalizedType);
+        } catch (IOException e) {
+            throw new IllegalStateException("생성된 장면 영상을 저장하지 못했습니다.", e);
+        }
+    }
+
     public StoredVideoAsset resolve(String reference) {
         if (reference == null || !SAFE_REFERENCE.matcher(reference).matches()) {
             throw new IllegalArgumentException("잘못된 장면 파일 참조입니다.");

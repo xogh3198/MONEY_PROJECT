@@ -19,4 +19,15 @@ public class VideoRenderConfig {
         executor.initialize();
         return executor;
     }
+
+    @Bean(name = "aiSceneExecutor")
+    public Executor aiSceneExecutor() {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(1);
+        executor.setMaxPoolSize(1);
+        executor.setQueueCapacity(4);
+        executor.setThreadNamePrefix("ai-scene-");
+        executor.initialize();
+        return executor;
+    }
 }

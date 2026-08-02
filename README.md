@@ -19,6 +19,8 @@
 | POST | `/api/v1/promotion-sources` | URL·소개글·상품·매장·앱·콘텐츠를 홍보 브리프로 정규화 |
 | POST | `/api/v1/promotion-plans` | 목표·고객·지역·예산으로 채널·비용·실행 행동 생성 |
 | POST | `/api/content-videos/render` | 사람이 승인한 7장면 대본을 비동기 MP4로 렌더 |
+| POST | `/api/content-videos/reference-analysis` | 동의한 YouTube URL에서 원문을 제외한 편집 구조 지표 생성 |
+| POST | `/api/content-videos/ai-assets` | 선택한 장면의 Higgsfield 5초 영상 생성을 비동기로 시작 |
 
 홍보 분석은 현재 입력값과 공개 URL의 주소만 사용하며 외부 페이지 본문이나 파일을 자동 수집하지 않습니다.
 
@@ -46,4 +48,13 @@ KAKAO_SENDER_KEY=(알림톡)
 VIDEO_RENDER_ENABLED=false
 VIDEO_RENDER_ACCESS_KEY=(프론트 VIDEO_RENDER_ACCESS_KEY와 동일)
 PIXABAY_API_KEY=(선택, 없으면 자체 카드만 사용)
+APIFY_REFERENCE_ENABLED=false
+APIFY_API_TOKEN=(선택, 공개 자막 구조 분석을 승인한 경우)
+HIGGSFIELD_ENABLED=false
+HIGGSFIELD_API_KEY=(선택, AI 장면 비용 사용을 승인한 경우)
+HIGGSFIELD_API_SECRET=(선택)
 ```
+
+Apify와 Higgsfield는 기본 비활성화다. 키가 없어도 사용자 자산 → Pixabay → 자체 카드 → 기존
+TTS·자막·FFmpeg MP4 렌더가 동작한다. Higgsfield 과금 요청은 검수자가 장면별 생성 버튼을 누른
+경우에만 실행하며 한 영상에서 최대 두 장면만 사용한다.

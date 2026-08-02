@@ -62,6 +62,18 @@ video:
     elevenlabs-model-id: ${ELEVENLABS_MODEL_ID:eleven_v3}
   assets:
     pixabay-api-key: ${PIXABAY_API_KEY:}
+    higgsfield:
+      enabled: ${HIGGSFIELD_ENABLED:false}
+      api-key: ${HIGGSFIELD_API_KEY:}
+      api-secret: ${HIGGSFIELD_API_SECRET:}
+      image-model: ${HIGGSFIELD_IMAGE_MODEL:higgsfield-ai/soul/standard}
+      video-model: ${HIGGSFIELD_VIDEO_MODEL:higgsfield-ai/dop/standard}
+      image-resolution: ${HIGGSFIELD_IMAGE_RESOLUTION:2K}
+      max-poll-seconds: ${HIGGSFIELD_MAX_POLL_SECONDS:480}
+  reference:
+    apify-enabled: ${APIFY_REFERENCE_ENABLED:false}
+    apify-token: ${APIFY_API_TOKEN:}
+    apify-actor-id: ${APIFY_YOUTUBE_ACTOR_ID:apihq~youtube-transcript-scraper}
 
 springdoc:
   api-docs:

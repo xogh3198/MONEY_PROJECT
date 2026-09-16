@@ -3,6 +3,7 @@ package com.dividendbot.news.service.video;
 import com.dividendbot.news.domain.entity.VideoRenderJob;
 import com.dividendbot.news.domain.repository.VideoRenderJobRepository;
 import com.dividendbot.news.dto.VideoRenderRequest;
+import com.dividendbot.news.dto.ShortformClipRequest;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 
@@ -13,10 +14,29 @@ public class VideoRenderWorker {
 
     private final VideoRenderJobRepository repository;
     private final FfmpegVideoRenderer renderer;
+    private final FfmpegShortformClipRenderer clipRenderer;
 
-    public VideoRenderWorker(VideoRenderJobRepository repository, FfmpegVideoRenderer renderer) {
+    public VideoRenderWorker(VideoRenderJobRepository repository, FfmpegVideoRenderer renderer, FfmpegShortformClipRenderer clipRenderer) {
         this.repository = repository;
         this.renderer = renderer;
+        this.clipRenderer = clipRenderer;
+    }
+
+    @Async("videoRenderExecutor")
+    public void renderClip(UUID jobId, ShortformClipRequest request) {
+        update(jobId, "작업 시작", 1);
+        try {
+            VideoRenderResult result = clipRenderer.render(
+                    jobId, request, progress -> update(jobId, progress.stage(), progress.percent())
+            );
+            VideoRenderJob job = requireJob(jobId);
+            job.markCompleted(result.outputFile().getFileName().toString(), result.durationSeconds(), result.assetCredits());
+            repository.save(job);
+        } catch (Exception error) {
+            VideoRenderJob job = requireJob(jobId);
+            job.markFailed(safeMessage(error));
+            repository.save(job);
+        }
     }
 
     @Async("videoRenderExecutor")

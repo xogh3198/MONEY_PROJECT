@@ -15,6 +15,7 @@ import com.dividendbot.news.service.video.VideoRenderService;
 import com.dividendbot.news.service.video.ShortformSourceStorage;
 import com.dividendbot.news.service.video.YouTubeDiscoveryService;
 import jakarta.validation.Valid;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.core.io.Resource;
 import org.springframework.http.CacheControl;
 import org.springframework.http.HttpHeaders;
@@ -105,11 +106,22 @@ public class ContentVideoController {
             @RequestHeader(value = "X-Video-Render-Key", required = false) String accessKey,
             @PathVariable UUID sourceId,
             @RequestHeader("X-Upload-Offset") long offset,
-            @RequestBody byte[] chunk
+            HttpServletRequest request
     ) {
         accessGuard.requireAuthorized(accessKey);
-        try { return ResponseEntity.ok().cacheControl(CacheControl.noStore())
-                .body(Map.of("uploadedBytes", shortformSources.append(sourceId, offset, chunk))); }
+        if (request.getContentLengthLong() > ShortformSourceStorage.MAX_CHUNK_BYTES) {
+            throw new ResponseStatusException(HttpStatus.PAYLOAD_TOO_LARGE, "업로드 조각은 3MB 이하여야 합니다.");
+        }
+        try {
+            byte[] chunk = request.getInputStream().readNBytes(ShortformSourceStorage.MAX_CHUNK_BYTES + 1);
+            if (chunk.length > ShortformSourceStorage.MAX_CHUNK_BYTES) {
+                throw new ResponseStatusException(HttpStatus.PAYLOAD_TOO_LARGE, "업로드 조각은 3MB 이하여야 합니다.");
+            }
+            return ResponseEntity.ok().cacheControl(CacheControl.noStore())
+                    .body(Map.of("uploadedBytes", shortformSources.append(sourceId, offset, chunk)));
+        } catch (java.io.IOException error) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "업로드 조각을 읽지 못했습니다.");
+        }
         catch (IllegalArgumentException error) { throw new ResponseStatusException(HttpStatus.BAD_REQUEST, error.getMessage(), error); }
     }
 
